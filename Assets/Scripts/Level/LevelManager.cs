@@ -1,0 +1,560 @@
+using System;
+using System.Collections;
+using Picker3D.Collectibles;
+using Picker3D.Core;
+using Picker3D.Data;
+using Picker3D.Player;
+using UnityEngine;
+
+namespace Picker3D.Level
+{
+    [DisallowMultipleComponent]
+    public sealed class LevelManager : MonoBehaviour
+    {
+        [Header("Level Source")]
+        [SerializeField] private bool instantiateDefinitionPrefab;
+        [SerializeField] private LevelDefinition levelDefinition;
+        [SerializeField] private Transform levelParent;
+        [SerializeField] private LevelController sceneLevel;
+
+        [Header("Runtime Generation")]
+        [SerializeField] private bool generateRuntimeCollectibles;
+        [SerializeField] private DifficultyConfig[] difficultyConfigs;
+        [SerializeField] private int levelSeed = 1;
+
+        [Header("Infinite Gameplay")]
+        [SerializeField] private bool infiniteGameplay = true;
+        [SerializeField, Min(0f)] private float nextLevelDelay = 0.1f;
+        [SerializeField, Min(0f)] private float nextGateOpenDuration = 0.6f;
+        [SerializeField, Min(0.01f)] private float playerTransferDuration = 1f;
+        [SerializeField, Min(0f)] private float playerTransferArcHeight = 1.5f;
+        [SerializeField] private AnimationCurve playerTransferCurve =
+            AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+        [Header("Shared Systems")]
+        [SerializeField] private GameFlowController gameFlow;
+        [SerializeField] private CollectibleReleaseController ballReleaseController;
+        [SerializeField] private LevelRestartService restartService;
+        [SerializeField] private PlayerMovement playerMovement;
+        [SerializeField] private ForwardOnlyCameraTarget cameraFollowTarget;
+        [SerializeField] private GemWallet gemWallet;
+
+        private GameObject activeLevelRoot;
+        private GameObject preparedLevelRoot;
+        private GameObject previousLevelRoot;
+        private LevelController preparedLevel;
+        private DifficultyConfig activeDifficulty;
+        private DifficultyConfig preparedDifficulty;
+        private Coroutine levelTransitionRoutine;
+        private int currentLevelIndex;
+
+        public event Action<int> LevelStarted;
+        public event Action<int> LevelFinished;
+
+        public LevelController ActiveLevel { get; private set; }
+        public int CurrentLevelNumber => currentLevelIndex + 1;
+        public DifficultyType CurrentDifficulty =>
+            activeDifficulty != null
+                ? activeDifficulty.Difficulty
+                : DifficultyType.Easy;
+
+        private void Awake()
+        {
+            if (!ValidateRuntimeReferences())
+            {
+                enabled = false;
+                return;
+            }
+
+            currentLevelIndex = 0;
+            activeDifficulty = SelectDifficulty(currentLevelIndex);
+
+            if (instantiateDefinitionPrefab)
+            {
+                activeLevelRoot = InstantiateDefinitionRoot(
+                    CurrentLevelNumber);
+                ActiveLevel = FindLevelController(activeLevelRoot);
+            }
+            else
+            {
+                ActiveLevel = sceneLevel;
+                activeLevelRoot = sceneLevel != null
+                    ? sceneLevel.gameObject
+                    : null;
+            }
+
+            if (!InitializeLevel(
+                    ActiveLevel,
+                    currentLevelIndex,
+                    true,
+                    activeDifficulty))
+            {
+                enabled = false;
+                return;
+            }
+
+            SubscribeToActiveLevel();
+
+            if (infiniteGameplay)
+            {
+                restartService.SetRuntimeRestartRoutine(
+                    RestartActiveLevelRoutine);
+
+                if (!PrepareFollowingLevel())
+                {
+                    enabled = false;
+                    return;
+                }
+            }
+
+            LevelStarted?.Invoke(CurrentLevelNumber);
+        }
+
+        private void OnDestroy()
+        {
+            UnsubscribeFromActiveLevel();
+
+            if (restartService != null)
+            {
+                restartService.ClearRuntimeRestartRoutine(
+                    RestartActiveLevelRoutine);
+            }
+
+            if (levelTransitionRoutine != null)
+            {
+                StopCoroutine(levelTransitionRoutine);
+            }
+        }
+
+        private bool ValidateRuntimeReferences()
+        {
+            bool isValid =
+                gameFlow != null &&
+                ballReleaseController != null &&
+                restartService != null &&
+                playerMovement != null &&
+                gemWallet != null &&
+                (!generateRuntimeCollectibles ||
+                 HasAvailableDifficultyConfig());
+
+            if (infiniteGameplay)
+            {
+                isValid &= instantiateDefinitionPrefab &&
+                           levelDefinition != null &&
+                           levelDefinition.LevelPrefab != null;
+            }
+
+            if (!isValid)
+            {
+                Debug.LogError(
+                    $"{nameof(LevelManager)} on '{name}' has missing Inspector references.",
+                    this);
+            }
+
+            return isValid;
+        }
+
+        private bool InitializeLevel(
+            LevelController controller,
+            int levelIndex,
+            bool activateImmediately,
+            DifficultyConfig difficulty)
+        {
+            if (controller == null)
+            {
+                Debug.LogError(
+                    $"{nameof(LevelManager)} on '{name}' could not create level {levelIndex + 1}.",
+                    this);
+                return false;
+            }
+
+            controller.Initialize(
+                gameFlow,
+                ballReleaseController,
+                restartService,
+                playerMovement,
+                generateRuntimeCollectibles ? difficulty : null,
+                CreateLevelSeed(levelIndex),
+                activateImmediately);
+
+            if (controller.enabled &&
+                generateRuntimeCollectibles &&
+                difficulty != null)
+            {
+                Debug.Log(
+                    $"Level {levelIndex + 1} difficulty: {difficulty.Difficulty}.",
+                    controller);
+            }
+
+            return controller.enabled;
+        }
+
+        private bool PrepareFollowingLevel()
+        {
+            if (ActiveLevel == null ||
+                ActiveLevel.NextLevelAnchor == null)
+            {
+                Debug.LogError(
+                    $"Active level '{ActiveLevel?.name}' requires a Next Level Anchor for infinite gameplay.",
+                    ActiveLevel);
+                return false;
+            }
+
+            int nextLevelIndex = currentLevelIndex + 1;
+            preparedDifficulty = SelectDifficulty(nextLevelIndex);
+            preparedLevelRoot = InstantiateDefinitionRoot(
+                nextLevelIndex + 1);
+            preparedLevel = FindLevelController(preparedLevelRoot);
+
+            if (preparedLevel == null ||
+                preparedLevel.PlayerSpawnPoint == null)
+            {
+                Debug.LogError(
+                    "Prepared level requires a Player Spawn Point.",
+                    preparedLevelRoot);
+                return false;
+            }
+
+            AlignPreparedLevel(
+                preparedLevelRoot.transform,
+                preparedLevel.PlayerSpawnPoint,
+                ActiveLevel.NextLevelAnchor);
+
+            return InitializeLevel(
+                preparedLevel,
+                nextLevelIndex,
+                false,
+                preparedDifficulty);
+        }
+
+        private void AlignPreparedLevel(
+            Transform preparedRoot,
+            Transform preparedSpawnPoint,
+            Transform connectionAnchor)
+        {
+            Quaternion rotationDelta =
+                connectionAnchor.rotation *
+                Quaternion.Inverse(preparedSpawnPoint.rotation);
+            preparedRoot.rotation =
+                rotationDelta * preparedRoot.rotation;
+            preparedRoot.position +=
+                connectionAnchor.position - preparedSpawnPoint.position;
+        }
+
+        private void HandleActiveLevelCompleted(int gemReward)
+        {
+            if (!infiniteGameplay || levelTransitionRoutine != null)
+            {
+                return;
+            }
+
+            gemWallet.AddGems(gemReward);
+            LevelFinished?.Invoke(CurrentLevelNumber);
+            levelTransitionRoutine = StartCoroutine(
+                AdvanceToPreparedLevelRoutine());
+        }
+
+        private IEnumerator AdvanceToPreparedLevelRoutine()
+        {
+            if (nextLevelDelay > 0f)
+            {
+                yield return new WaitForSeconds(nextLevelDelay);
+            }
+
+            UnsubscribeFromActiveLevel();
+            ballReleaseController.ReleaseCollectedItems();
+
+            PlayerRampMovement rampMovement =
+                playerMovement.GetComponent<PlayerRampMovement>();
+
+            if (rampMovement == null ||
+                preparedLevel == null ||
+                preparedLevel.PlayerSpawnPoint == null)
+            {
+                Debug.LogError(
+                    $"{nameof(LevelManager)} cannot animate the player to the prepared level.",
+                    this);
+                enabled = false;
+                yield break;
+            }
+
+            Coroutine gateRoutine = StartCoroutine(
+                preparedLevel.OpenEntranceGateRoutine(
+                    nextGateOpenDuration,
+                    playerTransferCurve));
+
+            cameraFollowTarget?.BeginLevelTransfer();
+
+            yield return rampMovement.FlyToLevelStartRoutine(
+                preparedLevel.PlayerSpawnPoint.position,
+                preparedLevel.PlayerSpawnPoint.rotation,
+                playerTransferDuration,
+                playerTransferArcHeight,
+                playerTransferCurve);
+
+            cameraFollowTarget?.CompleteLevelTransfer();
+
+            if (gateRoutine != null)
+            {
+                yield return gateRoutine;
+            }
+
+            if (previousLevelRoot != null)
+            {
+                Destroy(previousLevelRoot);
+            }
+
+            previousLevelRoot = activeLevelRoot;
+            activeLevelRoot = preparedLevelRoot;
+            ActiveLevel = preparedLevel;
+            activeDifficulty = preparedDifficulty;
+            preparedLevelRoot = null;
+            preparedLevel = null;
+            preparedDifficulty = null;
+            currentLevelIndex++;
+
+            SubscribeToActiveLevel();
+
+            if (!ActiveLevel.Activate(false))
+            {
+                enabled = false;
+                yield break;
+            }
+
+            if (!PrepareFollowingLevel())
+            {
+                enabled = false;
+                yield break;
+            }
+
+            gameFlow.WaitForLevelContinue();
+            LevelStarted?.Invoke(CurrentLevelNumber);
+            levelTransitionRoutine = null;
+        }
+
+        private IEnumerator RestartActiveLevelRoutine()
+        {
+            UnsubscribeFromActiveLevel();
+            ballReleaseController.ReleaseCollectedItems();
+
+            Vector3 activePosition = activeLevelRoot.transform.position;
+            Quaternion activeRotation = activeLevelRoot.transform.rotation;
+
+            if (preparedLevelRoot != null)
+            {
+                Destroy(preparedLevelRoot);
+                preparedLevelRoot = null;
+                preparedLevel = null;
+                preparedDifficulty = null;
+            }
+
+            Destroy(activeLevelRoot);
+            activeLevelRoot = null;
+            ActiveLevel = null;
+            yield return null;
+
+            activeLevelRoot = InstantiateDefinitionRoot(
+                CurrentLevelNumber);
+            activeLevelRoot.transform.SetPositionAndRotation(
+                activePosition,
+                activeRotation);
+            ActiveLevel = FindLevelController(activeLevelRoot);
+            activeDifficulty = SelectDifficulty(currentLevelIndex);
+
+            if (!InitializeLevel(
+                    ActiveLevel,
+                    currentLevelIndex,
+                    true,
+                    activeDifficulty))
+            {
+                enabled = false;
+                yield break;
+            }
+
+            cameraFollowTarget?.RecenterForCurrentPlayer();
+            SubscribeToActiveLevel();
+
+            if (!PrepareFollowingLevel())
+            {
+                enabled = false;
+                yield break;
+            }
+
+            gameFlow.PrepareToPlay();
+            LevelStarted?.Invoke(CurrentLevelNumber);
+        }
+
+        private GameObject InstantiateDefinitionRoot(int levelNumber)
+        {
+            if (levelDefinition == null ||
+                levelDefinition.LevelPrefab == null)
+            {
+                return null;
+            }
+
+            GameObject instance = Instantiate(
+                levelDefinition.LevelPrefab,
+                levelParent);
+            instance.name =
+                $"{levelDefinition.LevelPrefab.name}_{levelNumber:000}";
+            return instance;
+        }
+
+        private LevelController FindLevelController(GameObject levelRoot)
+        {
+            if (levelRoot == null)
+            {
+                return null;
+            }
+
+            LevelController controller =
+                levelRoot.GetComponentInChildren<LevelController>(true);
+
+            if (controller == null)
+            {
+                Debug.LogError(
+                    $"Instantiated level '{levelRoot.name}' has no {nameof(LevelController)}.",
+                    levelRoot);
+            }
+
+            return controller;
+        }
+
+        private void SubscribeToActiveLevel()
+        {
+            if (ActiveLevel != null)
+            {
+                ActiveLevel.LevelCompleted +=
+                    HandleActiveLevelCompleted;
+            }
+        }
+
+        private void UnsubscribeFromActiveLevel()
+        {
+            if (ActiveLevel != null)
+            {
+                ActiveLevel.LevelCompleted -=
+                    HandleActiveLevelCompleted;
+            }
+        }
+
+        private int CreateLevelSeed(int levelIndex)
+        {
+            unchecked
+            {
+                return levelSeed + levelIndex * 104729;
+            }
+        }
+
+        private DifficultyConfig SelectDifficulty(int levelIndex)
+        {
+            if (!generateRuntimeCollectibles ||
+                !HasAvailableDifficultyConfig())
+            {
+                return null;
+            }
+
+            int availableCount = 0;
+
+            for (int index = 0;
+                 index < difficultyConfigs.Length;
+                 index++)
+            {
+                if (difficultyConfigs[index] != null)
+                {
+                    availableCount++;
+                }
+            }
+
+            System.Random random = new System.Random(
+                unchecked(
+                    CreateLevelSeed(levelIndex) ^
+                    (levelIndex + 1) * 19349663));
+            int selectedAvailableIndex =
+                random.Next(availableCount);
+
+            for (int index = 0;
+                 index < difficultyConfigs.Length;
+                 index++)
+            {
+                DifficultyConfig config =
+                    difficultyConfigs[index];
+
+                if (config == null)
+                {
+                    continue;
+                }
+
+                if (selectedAvailableIndex == 0)
+                {
+                    return config;
+                }
+
+                selectedAvailableIndex--;
+            }
+
+            return null;
+        }
+
+        private bool HasAvailableDifficultyConfig()
+        {
+            if (difficultyConfigs == null ||
+                difficultyConfigs.Length == 0)
+            {
+                return false;
+            }
+
+            for (int index = 0;
+                 index < difficultyConfigs.Length;
+                 index++)
+            {
+                if (difficultyConfigs[index] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void OnValidate()
+        {
+            nextLevelDelay = Mathf.Max(0f, nextLevelDelay);
+            nextGateOpenDuration = Mathf.Max(0f, nextGateOpenDuration);
+            playerTransferDuration = Mathf.Max(
+                0.01f,
+                playerTransferDuration);
+            playerTransferArcHeight = Mathf.Max(
+                0f,
+                playerTransferArcHeight);
+
+            if (generateRuntimeCollectibles &&
+                !HasAvailableDifficultyConfig())
+            {
+                Debug.LogWarning(
+                    $"{nameof(LevelManager)} on '{name}' requires at least one difficulty config when runtime generation is enabled.",
+                    this);
+            }
+
+            if (infiniteGameplay && !instantiateDefinitionPrefab)
+            {
+                Debug.LogWarning(
+                    $"{nameof(LevelManager)} on '{name}' requires Instantiate Definition Prefab for infinite gameplay.",
+                    this);
+            }
+
+            if (instantiateDefinitionPrefab && levelDefinition == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(LevelManager)} on '{name}' has no level definition.",
+                    this);
+            }
+            else if (!instantiateDefinitionPrefab && sceneLevel == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(LevelManager)} on '{name}' has no scene level.",
+                    this);
+            }
+        }
+    }
+}
