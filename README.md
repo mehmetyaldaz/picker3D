@@ -1,6 +1,6 @@
 # Picker3D
 
-![Picker3D main screen](Docs/main-screen.png)
+![Picker3D main screen](Assets/Materials/mainScreen.png)
 
 Picker3D is a mobile arcade game in which the player controls an
 automatically moving collector by dragging left and right. The goal is
