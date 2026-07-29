@@ -26,6 +26,9 @@ namespace Picker3D.UI
         private readonly List<FlyingGem> flyingGems = new();
         private Coroutine rewardAnimationRoutine;
 
+        public bool IsRewardAnimationPlaying =>
+            rewardAnimationRoutine != null;
+
         private sealed class FlyingGem
         {
             public RectTransform RectTransform;
@@ -163,6 +166,14 @@ namespace Picker3D.UI
             SetDisplayedBalance(totalBalance);
             flyingGems.Clear();
             rewardAnimationRoutine = null;
+        }
+
+        public IEnumerator WaitForRewardAnimationRoutine()
+        {
+            while (IsRewardAnimationPlaying)
+            {
+                yield return null;
+            }
         }
 
         private void CreateFlyingGems(int addedAmount)

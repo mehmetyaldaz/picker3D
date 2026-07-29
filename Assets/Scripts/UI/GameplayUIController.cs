@@ -14,6 +14,7 @@ namespace Picker3D.UI
         [SerializeField] private FailedScreen failedScreen;
         [SerializeField] private LevelFinishedScreen levelFinishedScreen;
         [SerializeField] private StoreScreen storeScreen;
+        [SerializeField] private MissionScreen missionScreen;
         [SerializeField] private LevelProgressHUD levelProgressHud;
 
         [Header("Game Systems")]
@@ -50,6 +51,8 @@ namespace Picker3D.UI
                 tapToPlayScreen.Tapped += HandleTapToPlay;
                 tapToPlayScreen.StoreRequested +=
                     HandleStoreRequested;
+                tapToPlayScreen.MissionRequested +=
+                    HandleMissionRequested;
             }
 
             if (failedScreen != null)
@@ -68,6 +71,12 @@ namespace Picker3D.UI
             {
                 storeScreen.CloseRequested +=
                     HandleStoreCloseRequested;
+            }
+
+            if (missionScreen != null)
+            {
+                missionScreen.CloseRequested +=
+                    HandleMissionCloseRequested;
             }
         }
 
@@ -88,6 +97,8 @@ namespace Picker3D.UI
                 tapToPlayScreen.Tapped -= HandleTapToPlay;
                 tapToPlayScreen.StoreRequested -=
                     HandleStoreRequested;
+                tapToPlayScreen.MissionRequested -=
+                    HandleMissionRequested;
             }
 
             if (failedScreen != null)
@@ -106,6 +117,12 @@ namespace Picker3D.UI
             {
                 storeScreen.CloseRequested -=
                     HandleStoreCloseRequested;
+            }
+
+            if (missionScreen != null)
+            {
+                missionScreen.CloseRequested -=
+                    HandleMissionCloseRequested;
             }
         }
 
@@ -135,6 +152,30 @@ namespace Picker3D.UI
         {
             if (gameFlow.CurrentState != GameState.Ready ||
                 screenRouter.CurrentScreenId != UIScreenId.Store)
+            {
+                return;
+            }
+
+            SetLevelProgressVisible(true);
+            screenRouter.Show(UIScreenId.TapToPlay);
+        }
+
+        private void HandleMissionRequested()
+        {
+            if (gameFlow.CurrentState != GameState.Ready)
+            {
+                return;
+            }
+
+            SetLevelProgressVisible(false);
+            screenRouter.Show(UIScreenId.Mission);
+        }
+
+        private void HandleMissionCloseRequested()
+        {
+            if (gameFlow.CurrentState != GameState.Ready ||
+                screenRouter.CurrentScreenId !=
+                UIScreenId.Mission)
             {
                 return;
             }
@@ -230,6 +271,12 @@ namespace Picker3D.UI
                     GetComponentInChildren<StoreScreen>(true);
             }
 
+            if (missionScreen == null)
+            {
+                missionScreen =
+                    GetComponentInChildren<MissionScreen>(true);
+            }
+
             if (levelProgressHud == null)
             {
                 levelProgressHud =
@@ -245,6 +292,7 @@ namespace Picker3D.UI
                 failedScreen != null &&
                 levelFinishedScreen != null &&
                 storeScreen != null &&
+                missionScreen != null &&
                 levelProgressHud != null &&
                 gameFlow != null &&
                 restartService != null;

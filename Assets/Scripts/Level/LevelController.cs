@@ -38,6 +38,7 @@ namespace Picker3D.Level
         public event Action<int, LevelPartController> CurrentPartChanged;
         public event Action<int> PartCompleted;
         public event Action<int> LevelCompleted;
+        public event Action<int> CollectiblesDeposited;
 
         public int PartCount =>
             orderedParts != null ? orderedParts.Length : 0;
@@ -46,6 +47,18 @@ namespace Picker3D.Level
         public int CompletedPartCount { get; private set; }
         public Transform PlayerSpawnPoint => playerSpawnPoint;
         public Transform NextLevelAnchor => nextLevelAnchor;
+
+        public LevelPartController GetPart(int partIndex)
+        {
+            if (orderedParts == null ||
+                partIndex < 0 ||
+                partIndex >= orderedParts.Length)
+            {
+                return null;
+            }
+
+            return orderedParts[partIndex];
+        }
 
         public void Initialize(
             GameFlowController sharedGameFlow,
@@ -113,6 +126,8 @@ namespace Picker3D.Level
                     nextGate);
                 part.SetCurrentPart(false);
                 part.TransitionCompleted += HandlePartTransitionCompleted;
+                part.CollectiblesDeposited +=
+                    HandleCollectiblesDeposited;
             }
 
             TrySpawnOutsideView(levelSeed);
@@ -329,6 +344,8 @@ namespace Picker3D.Level
                 {
                     orderedParts[index].TransitionCompleted -=
                         HandlePartTransitionCompleted;
+                    orderedParts[index].CollectiblesDeposited -=
+                        HandleCollectiblesDeposited;
                 }
             }
 
@@ -385,9 +402,24 @@ namespace Picker3D.Level
             CurrentPartChanged?.Invoke(currentPartIndex, nextPart);
         }
 
+        private void HandleCollectiblesDeposited(
+            int depositedCount)
+        {
+            if (!isInitialized ||
+                !isActiveLevel ||
+                depositedCount <= 0)
+            {
+                return;
+            }
+
+            CollectiblesDeposited?.Invoke(
+                depositedCount);
+        }
+
         private IEnumerator PrepareFinalRampRoutine()
         {
             yield return finalRamp.OpenEntranceRoutine();
+            playerMovement.ClearMovementRestriction();
             finalRamp.Arm();
             gameFlow.ResumePlaying();
             finalRampPreparationRoutine = null;
@@ -469,7 +501,8 @@ namespace Picker3D.Level
         {
             playerMovement.PrepareForLevel(
                 part.LeftMovementLimit,
-                part.RightMovementLimit);
+                part.RightMovementLimit,
+                part.MovementRestrictionAnchor);
         }
 
         private int CreatePartSeed(int levelSeed, int partIndex)

@@ -6,76 +6,164 @@ namespace Picker3D.Player
     [DisallowMultipleComponent]
     public sealed class PlayerDragInput : MonoBehaviour
     {
+        private const float FreshGestureMovementThresholdPixels = 1f;
+
+        private enum PointerSource
+        {
+            None,
+            Mouse,
+            Touch,
+            Pen
+        }
+
         private float accumulatedHorizontalDrag;
         private Vector2 previousPointerPosition;
-        private Pointer activePointer;
+        private bool isTrackingPointer;
+        private PointerSource activePointerSource;
+        private float gestureTotalNormalizedDrag;
+        private int gestureMovementFrames;
+        private bool waitingForPointerRelease;
+        private Vector2 waitingPointerPosition;
+        private PointerSource waitingPointerSource;
 
         private void Update()
         {
-            if (activePointer == null)
+            if (waitingForPointerRelease)
             {
-                activePointer = FindPressedPointer();
+                if (!TryGetPressedPointerPosition(
+                        out Vector2 waitingCurrentPosition,
+                        out PointerSource waitingCurrentSource))
+                {
+                    waitingForPointerRelease = false;
+                    waitingPointerPosition = default;
+                    waitingPointerSource = PointerSource.None;
+                    Debug.Log(
+                        "[MovementDebug][DragInput] Stale pointer released; fresh drag input is ready.",
+                        this);
+                    return;
+                }
 
-                if (activePointer == null)
+                bool pointerSourceChanged =
+                    waitingCurrentSource != waitingPointerSource;
+                bool pointerMoved =
+                    (waitingCurrentPosition -
+                     waitingPointerPosition).sqrMagnitude >=
+                    FreshGestureMovementThresholdPixels *
+                    FreshGestureMovementThresholdPixels;
+
+                if (!pointerSourceChanged && !pointerMoved)
                 {
                     return;
                 }
 
-                previousPointerPosition =
-                    activePointer.position.ReadValue();
+                waitingForPointerRelease = false;
+                waitingPointerPosition = default;
+                waitingPointerSource = PointerSource.None;
+                previousPointerPosition = waitingCurrentPosition;
+                isTrackingPointer = true;
+                activePointerSource = waitingCurrentSource;
+                gestureTotalNormalizedDrag = 0f;
+                gestureMovementFrames = 0;
+                Debug.Log(
+                    $"[MovementDebug][DragInput] Stale pointer recovery accepted a fresh gesture | source={waitingCurrentSource} position={waitingCurrentPosition} {GetPressedDeviceState()}",
+                    this);
                 return;
             }
 
-            if (!activePointer.added ||
-                !activePointer.press.isPressed)
+            if (!TryGetPressedPointerPosition(
+                    out Vector2 pointerPosition,
+                    out PointerSource pointerSource))
             {
-                activePointer = null;
+                if (isTrackingPointer)
+                {
+                    Debug.Log(
+                        $"[MovementDebug][DragInput] Gesture ended | source={activePointerSource} movementFrames={gestureMovementFrames} totalNormalizedDrag={gestureTotalNormalizedDrag:F4} {GetPressedDeviceState()}",
+                        this);
+                }
+
+                isTrackingPointer = false;
+                activePointerSource = PointerSource.None;
+                gestureTotalNormalizedDrag = 0f;
+                gestureMovementFrames = 0;
                 return;
             }
 
-            Vector2 currentPosition =
-                activePointer.position.ReadValue();
+            if (!isTrackingPointer)
+            {
+                previousPointerPosition = pointerPosition;
+                isTrackingPointer = true;
+                activePointerSource = pointerSource;
+                gestureTotalNormalizedDrag = 0f;
+                gestureMovementFrames = 0;
+                Debug.Log(
+                    $"[MovementDebug][DragInput] Gesture started | source={pointerSource} position={pointerPosition} {GetPressedDeviceState()}",
+                    this);
+                return;
+            }
+
+            if (activePointerSource != pointerSource)
+            {
+                Debug.LogWarning(
+                    $"[MovementDebug][DragInput] Pointer source changed during gesture | {activePointerSource} -> {pointerSource} previousPosition={previousPointerPosition} currentPosition={pointerPosition} {GetPressedDeviceState()}",
+                    this);
+                activePointerSource = pointerSource;
+            }
 
             float screenWidth = Mathf.Max(1f, Screen.width);
-            accumulatedHorizontalDrag +=
-                (currentPosition.x - previousPointerPosition.x) / screenWidth;
-            previousPointerPosition = currentPosition;
-        }
+            float normalizedDelta =
+                (pointerPosition.x - previousPointerPosition.x) /
+                screenWidth;
+            accumulatedHorizontalDrag += normalizedDelta;
+            gestureTotalNormalizedDrag += normalizedDelta;
 
-        private Pointer FindPressedPointer()
-        {
-            Touchscreen touchscreen = Touchscreen.current;
-
-            if (IsPressed(touchscreen))
+            if (!Mathf.Approximately(
+                    normalizedDelta,
+                    0f))
             {
-                return touchscreen;
+                gestureMovementFrames++;
             }
 
+            previousPointerPosition = pointerPosition;
+        }
+
+        private bool TryGetPressedPointerPosition(
+            out Vector2 pointerPosition,
+            out PointerSource pointerSource)
+        {
             Mouse mouse = Mouse.current;
 
-            if (IsPressed(mouse))
+            if (mouse != null &&
+                mouse.leftButton.isPressed)
             {
-                return mouse;
+                pointerPosition =
+                    mouse.position.ReadValue();
+                pointerSource = PointerSource.Mouse;
+                return true;
+            }
+
+            Touchscreen touchscreen = Touchscreen.current;
+
+            if (touchscreen != null &&
+                touchscreen.primaryTouch.press.isPressed)
+            {
+                pointerPosition =
+                    touchscreen.primaryTouch.position.ReadValue();
+                pointerSource = PointerSource.Touch;
+                return true;
             }
 
             Pen pen = Pen.current;
 
-            if (IsPressed(pen))
+            if (pen != null && pen.tip.isPressed)
             {
-                return pen;
+                pointerPosition = pen.position.ReadValue();
+                pointerSource = PointerSource.Pen;
+                return true;
             }
 
-            Pointer currentPointer = Pointer.current;
-            return IsPressed(currentPointer)
-                ? currentPointer
-                : null;
-        }
-
-        private bool IsPressed(Pointer pointer)
-        {
-            return pointer != null &&
-                   pointer.added &&
-                   pointer.press.isPressed;
+            pointerPosition = default;
+            pointerSource = PointerSource.None;
+            return false;
         }
 
         public float ConsumeHorizontalDrag()
@@ -87,19 +175,80 @@ namespace Picker3D.Player
 
         public void Clear()
         {
+            if (isTrackingPointer ||
+                !Mathf.Approximately(
+                    accumulatedHorizontalDrag,
+                    0f))
+            {
+                Debug.Log(
+                    $"[MovementDebug][DragInput] Clear called | {GetDebugState()}",
+                    this);
+            }
+
             ResetDrag();
+        }
+
+        public void RequireFreshPointerPress()
+        {
+            ResetDrag();
+            waitingForPointerRelease =
+                TryGetPressedPointerPosition(
+                    out waitingPointerPosition,
+                    out waitingPointerSource);
+
+            Debug.Log(
+                $"[MovementDebug][DragInput] Fresh pointer required | waitingForRelease={waitingForPointerRelease} {GetPressedDeviceState()}",
+                this);
+        }
+
+        private void OnEnable()
+        {
+            Debug.Log(
+                $"[MovementDebug][DragInput] Enabled | activeInHierarchy={gameObject.activeInHierarchy} screen={Screen.width}x{Screen.height}",
+                this);
         }
 
         private void OnDisable()
         {
+            Debug.LogWarning(
+                $"[MovementDebug][DragInput] Disabled | {GetDebugState()}",
+                this);
+            waitingForPointerRelease = false;
+            waitingPointerPosition = default;
+            waitingPointerSource = PointerSource.None;
             ResetDrag();
+        }
+
+        public string GetDebugState()
+        {
+            return
+                $"componentEnabled={enabled} activeInHierarchy={gameObject.activeInHierarchy} waitingForRelease={waitingForPointerRelease} tracking={isTrackingPointer} source={activePointerSource} accumulatedDrag={accumulatedHorizontalDrag:F4} {GetPressedDeviceState()}";
+        }
+
+        private string GetPressedDeviceState()
+        {
+            bool mousePressed =
+                Mouse.current != null &&
+                Mouse.current.leftButton.isPressed;
+            bool touchPressed =
+                Touchscreen.current != null &&
+                Touchscreen.current.primaryTouch.press.isPressed;
+            bool penPressed =
+                Pen.current != null &&
+                Pen.current.tip.isPressed;
+
+            return
+                $"mousePressed={mousePressed} touchPressed={touchPressed} penPressed={penPressed}";
         }
 
         private void ResetDrag()
         {
             accumulatedHorizontalDrag = 0f;
-            activePointer = null;
             previousPointerPosition = default;
+            isTrackingPointer = false;
+            activePointerSource = PointerSource.None;
+            gestureTotalNormalizedDrag = 0f;
+            gestureMovementFrames = 0;
         }
     }
 }

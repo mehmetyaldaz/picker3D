@@ -7,39 +7,40 @@ namespace Picker3D.Player
     public sealed class PlayerTapInput : MonoBehaviour
     {
         private int pendingTapCount;
+        private bool wasPointerPressed;
 
         private void Update()
         {
-            bool wasPressedThisFrame = false;
+            bool isPointerPressed = IsPointerPressed();
+
+            if (isPointerPressed && !wasPointerPressed)
+            {
+                pendingTapCount++;
+            }
+
+            wasPointerPressed = isPointerPressed;
+        }
+
+        private bool IsPointerPressed()
+        {
+            Mouse mouse = Mouse.current;
+
+            if (mouse != null &&
+                mouse.leftButton.isPressed)
+            {
+                return true;
+            }
 
             Touchscreen touchscreen = Touchscreen.current;
 
             if (touchscreen != null &&
-                touchscreen.primaryTouch.press.wasPressedThisFrame)
+                touchscreen.primaryTouch.press.isPressed)
             {
-                wasPressedThisFrame = true;
-            }
-
-            Mouse mouse = Mouse.current;
-
-            if (mouse != null &&
-                mouse.leftButton.wasPressedThisFrame)
-            {
-                wasPressedThisFrame = true;
+                return true;
             }
 
             Pen pen = Pen.current;
-
-            if (pen != null &&
-                pen.tip.wasPressedThisFrame)
-            {
-                wasPressedThisFrame = true;
-            }
-
-            if (wasPressedThisFrame)
-            {
-                pendingTapCount++;
-            }
+            return pen != null && pen.tip.isPressed;
         }
 
         public int ConsumeTapCount()
@@ -57,6 +58,7 @@ namespace Picker3D.Player
         private void OnDisable()
         {
             Clear();
+            wasPointerPressed = false;
         }
     }
 }

@@ -128,6 +128,9 @@ namespace Picker3D.Core
             GameState previousState = CurrentState;
             CurrentState = nextState;
             ApplyPlayerMovementState();
+            Debug.Log(
+                $"[MovementDebug][GameFlow] State changed | {previousState} -> {nextState}",
+                this);
             StateChanged?.Invoke(previousState, nextState);
         }
 
@@ -138,7 +141,17 @@ namespace Picker3D.Core
                 return;
             }
 
-            playerMovement.SetAutomaticMovementEnabled(CurrentState == GameState.PlayingPart);
+            bool enableForwardMovement =
+                CurrentState == GameState.PlayingPart;
+            bool enableHorizontalMovement =
+                CurrentState == GameState.PlayingPart ||
+                CurrentState == GameState.WaitingForDrop ||
+                CurrentState == GameState.ResolvingPart ||
+                CurrentState == GameState.Transitioning;
+
+            playerMovement.SetMovementEnabled(
+                enableForwardMovement,
+                enableHorizontalMovement);
         }
 
         private void OnValidate()

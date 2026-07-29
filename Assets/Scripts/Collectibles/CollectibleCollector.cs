@@ -102,7 +102,9 @@ namespace Picker3D.Collectibles
             CountChanged?.Invoke(collectedItems.Count);
         }
 
-        public void ReleaseAll(Vector3 targetPosition, float impulse)
+        public void ReleaseAll(
+            Vector3 targetPosition,
+            float movementSpeed)
         {
             foreach (CollectibleItem item in collectedItems)
             {
@@ -111,14 +113,39 @@ namespace Picker3D.Collectibles
                     continue;
                 }
 
-                Vector3 direction = targetPosition - item.transform.position;
+                item.BeginGuidedRelease(
+                    targetPosition,
+                    movementSpeed);
+            }
 
-                if (direction.sqrMagnitude > 0.0001f)
+            collectedItems.Clear();
+            CountChanged?.Invoke(0);
+        }
+
+        public void ReleaseAll(
+            DropboxCollectibleCounter dropboxCounter,
+            float movementSpeed)
+        {
+            if (dropboxCounter == null)
+            {
+                return;
+            }
+
+            int itemCount = collectedItems.Count;
+            int itemIndex = 0;
+
+            foreach (CollectibleItem item in collectedItems)
+            {
+                if (item != null)
                 {
-                    direction.Normalize();
+                    item.BeginGuidedRelease(
+                        dropboxCounter.GetReleaseTargetPosition(
+                            itemIndex,
+                            itemCount),
+                        movementSpeed);
                 }
 
-                item.Release(direction * impulse);
+                itemIndex++;
             }
 
             collectedItems.Clear();

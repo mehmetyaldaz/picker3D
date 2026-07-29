@@ -6,6 +6,7 @@ namespace Picker3D.UI
         TapToPlay = 1,
         Failed = 2,
         LevelFinished = 3,
-        Store = 4
+        Store = 4,
+        Mission = 5
     }
 }

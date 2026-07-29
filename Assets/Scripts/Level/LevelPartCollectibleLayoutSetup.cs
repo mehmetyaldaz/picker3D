@@ -9,6 +9,7 @@ namespace Picker3D.Level
     public sealed class LevelPartCollectibleLayoutSetup : MonoBehaviour
     {
         private const int RecommendedLayoutCount = 3;
+        private const int RequiredLayoutCapacity = 60;
 
         [SerializeField] private Transform layoutAnchor;
         [SerializeField] private ManualCollectibleLayout[] layoutPrefabs;
@@ -51,7 +52,8 @@ namespace Picker3D.Level
             for (int index = 0; index < layoutPrefabs.Length; index++)
             {
                 if (layoutPrefabs[index] == null ||
-                    layoutPrefabs[index].Capacity < 50)
+                    layoutPrefabs[index].Capacity <
+                    RequiredLayoutCapacity)
                 {
                     return false;
                 }

@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: HardDifficulty
   m_EditorClassIdentifier: 
   difficulty: 2
-  requiredCounts: 1e0000002300000028000000
+  requiredCounts: 1e00000023000000280000002d00000032000000
   generatedCountBonus: 10

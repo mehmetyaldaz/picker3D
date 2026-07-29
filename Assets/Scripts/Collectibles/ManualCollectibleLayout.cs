@@ -13,12 +13,14 @@ namespace Picker3D.Collectibles
         [SerializeField] private Transform extraTo30Group;
         [SerializeField] private Transform extraTo40Group;
         [SerializeField] private Transform extraTo50Group;
+        [SerializeField] private Transform extraTo60Group;
 
         public int Capacity =>
             GetDirectChildCount(base20Group) +
             GetDirectChildCount(extraTo30Group) +
             GetDirectChildCount(extraTo40Group) +
-            GetDirectChildCount(extraTo50Group);
+            GetDirectChildCount(extraTo50Group) +
+            GetDirectChildCount(extraTo60Group);
 
         public Vector3 GetWorldPosition(int index)
         {
@@ -63,7 +65,14 @@ namespace Picker3D.Collectibles
                 return point;
             }
 
-            return GetPointFromGroup(extraTo50Group, ref index);
+            point = GetPointFromGroup(extraTo50Group, ref index);
+
+            if (point != null)
+            {
+                return point;
+            }
+
+            return GetPointFromGroup(extraTo60Group, ref index);
         }
 
         private Transform GetPointFromGroup(
@@ -101,12 +110,17 @@ namespace Picker3D.Collectibles
                 extraTo50Group,
                 ExtraGroupPointCount,
                 nameof(extraTo50Group));
+            ValidateGroup(
+                extraTo60Group,
+                ExtraGroupPointCount,
+                nameof(extraTo60Group));
 
             HashSet<Transform> groups = new();
             ValidateUniqueGroup(groups, base20Group);
             ValidateUniqueGroup(groups, extraTo30Group);
             ValidateUniqueGroup(groups, extraTo40Group);
             ValidateUniqueGroup(groups, extraTo50Group);
+            ValidateUniqueGroup(groups, extraTo60Group);
         }
 
         private void ValidateGroup(

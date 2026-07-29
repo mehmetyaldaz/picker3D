@@ -6,6 +6,8 @@ namespace Picker3D.Collectibles
     [DisallowMultipleComponent]
     public class CollectibleReleaseController : MonoBehaviour
     {
+        private const float MinimumGuidedReleaseSpeed = 8f;
+
         [SerializeField] private CollectibleCollector ballCollector;
         [SerializeField] private PlayerConfig playerConfig;
         [SerializeField] private Transform releaseTarget;
@@ -17,9 +19,38 @@ namespace Picker3D.Collectibles
                 return;
             }
 
+            ReleaseCollectedItems(releaseTarget.position);
+        }
+
+        public void ReleaseCollectedItems(
+            Vector3 targetPosition)
+        {
+            if (!ValidateReferences())
+            {
+                return;
+            }
+
             ballCollector.ReleaseAll(
-                releaseTarget.position,
-                playerConfig.BallReleaseImpulse);
+                targetPosition,
+                Mathf.Max(
+                    playerConfig.BallReleaseImpulse,
+                    MinimumGuidedReleaseSpeed));
+        }
+
+        public void ReleaseCollectedItems(
+            DropboxCollectibleCounter dropboxCounter)
+        {
+            if (!ValidateReferences() ||
+                dropboxCounter == null)
+            {
+                return;
+            }
+
+            ballCollector.ReleaseAll(
+                dropboxCounter,
+                Mathf.Max(
+                    playerConfig.BallReleaseImpulse,
+                    MinimumGuidedReleaseSpeed));
         }
 
         [ContextMenu("Release Collected Items")]
