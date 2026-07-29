@@ -9,6 +9,10 @@ namespace Picker3D.Player
     [RequireComponent(typeof(PlayerTapInput))]
     public sealed class PlayerRampMovement : MonoBehaviour
     {
+        private const float LandingBounceSpeed = 1.5f;
+        private const float LandingHorizontalSpeedMultiplier = 0.2f;
+        private const float LandingStraightenDuration = 0.8f;
+
         private enum MovementPhase
         {
             Inactive,
@@ -35,8 +39,10 @@ namespace Picker3D.Player
         private bool originalIsKinematic;
         private bool originalDetectCollisions;
         private CollisionDetectionMode originalCollisionDetectionMode;
+        private Quaternion landingRotation;
         private float physicsFlightStartTime;
         private Coroutine collisionRestoreRoutine;
+        private Coroutine landingStraightenRoutine;
         private readonly RaycastHit[] surfaceHits = new RaycastHit[16];
 
         public event Action<float> RampEndReached;
@@ -118,6 +124,9 @@ namespace Picker3D.Player
                 initialRampSpeed,
                 maximumRampSpeed,
                 rampSpeed);
+            Debug.Log(
+                $"[MovementDebug][Ramp] Ramp end reached | speedProgress={speedProgress:F3} rampSpeed={rampSpeed:F3} position={body.position}",
+                this);
             RampEndReached?.Invoke(speedProgress);
         }
 
@@ -129,6 +138,8 @@ namespace Picker3D.Player
             float rampZAngle,
             float verticalOffset)
         {
+            CancelLandingStraighten();
+
             if (!constraintsWereCaptured)
             {
                 originalConstraints = body.constraints;
@@ -136,6 +147,7 @@ namespace Picker3D.Player
                 originalIsKinematic = body.isKinematic;
                 originalDetectCollisions = body.detectCollisions;
                 originalCollisionDetectionMode = body.collisionDetectionMode;
+                landingRotation = body.rotation;
                 constraintsWereCaptured = true;
             }
 
@@ -169,6 +181,9 @@ namespace Picker3D.Player
             maximumRampSpeed = Mathf.Max(initialRampSpeed, maximumSpeed);
             tapInput.Clear();
             phase = MovementPhase.ClimbingRamp;
+            Debug.Log(
+                $"[MovementDebug][Ramp] BeginRamp | start={pathStart} end={pathEnd} pathLength={pathLength:F3} startSpeed={initialRampSpeed:F3} maxSpeed={maximumRampSpeed:F3} position={body.position}",
+                this);
 
             if (pathLength > Mathf.Epsilon)
             {
@@ -305,6 +320,9 @@ namespace Picker3D.Player
             collisionRestoreRoutine = StartCoroutine(
                 RestoreFlightCollisionsRoutine(
                     collisionSuppressionDuration));
+            Debug.Log(
+                $"[MovementDebug][Ramp] Physics flight started | speedProgress={speedProgress:F3} forwardSpeed={forwardSpeed:F3} velocity={body.linearVelocity} position={body.position}",
+                this);
         }
 
         private float CalculateRequiredForwardSpeed(
@@ -366,7 +384,7 @@ namespace Picker3D.Player
             collisionRestoreRoutine = null;
         }
 
-        public void StabilizeLanding()
+        private void BounceAfterLanding()
         {
             if (phase != MovementPhase.PhysicsFlight)
             {
@@ -374,12 +392,55 @@ namespace Picker3D.Player
             }
 
             phase = MovementPhase.Inactive;
-            body.linearVelocity = Vector3.zero;
-            body.angularVelocity = Vector3.zero;
             body.detectCollisions = true;
-            body.isKinematic = true;
-            body.useGravity = false;
-            body.constraints = RigidbodyConstraints.FreezeAll;
+
+            Vector3 bounceVelocity = body.linearVelocity;
+            bounceVelocity.x *= LandingHorizontalSpeedMultiplier;
+            bounceVelocity.y = LandingBounceSpeed;
+            bounceVelocity.z *= LandingHorizontalSpeedMultiplier;
+            body.linearVelocity = bounceVelocity;
+            body.angularVelocity = Vector3.zero;
+            body.constraints = RigidbodyConstraints.FreezeRotation;
+
+            CancelLandingStraighten();
+            landingStraightenRoutine = StartCoroutine(
+                StraightenAfterLandingRoutine(body.rotation));
+        }
+
+        private IEnumerator StraightenAfterLandingRoutine(
+            Quaternion startRotation)
+        {
+            float elapsed = 0f;
+
+            while (elapsed < LandingStraightenDuration)
+            {
+                yield return new WaitForFixedUpdate();
+                elapsed += Time.fixedDeltaTime;
+                float progress = Mathf.SmoothStep(
+                    0f,
+                    1f,
+                    Mathf.Clamp01(
+                        elapsed / LandingStraightenDuration));
+                body.MoveRotation(
+                    Quaternion.Slerp(
+                        startRotation,
+                        landingRotation,
+                        progress));
+            }
+
+            body.MoveRotation(landingRotation);
+            landingStraightenRoutine = null;
+        }
+
+        private void CancelLandingStraighten()
+        {
+            if (landingStraightenRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(landingStraightenRoutine);
+            landingStraightenRoutine = null;
         }
 
         private void OnCollisionEnter(Collision collision)
@@ -399,12 +460,16 @@ namespace Picker3D.Player
             }
 
             Vector3 landingPosition = body.position;
-            StabilizeLanding();
+            Debug.Log(
+                $"[MovementDebug][Ramp] Physics landed | collider={collision.collider.name} position={landingPosition} velocity={body.linearVelocity}",
+                this);
+            BounceAfterLanding();
             PhysicsLanded?.Invoke(landingPosition);
         }
 
         public void Stop()
         {
+            MovementPhase previousPhase = phase;
             phase = MovementPhase.Inactive;
             tapInput?.Clear();
 
@@ -429,6 +494,10 @@ namespace Picker3D.Player
                 body.collisionDetectionMode = originalCollisionDetectionMode;
                 constraintsWereCaptured = false;
             }
+
+            Debug.Log(
+                $"[MovementDebug][Ramp] Stop | previousPhase={previousPhase} position={(body != null ? body.position.ToString() : "body=null")} kinematic={(body != null && body.isKinematic)}",
+                this);
         }
 
         public void ResetForLevelStart(
@@ -443,12 +512,16 @@ namespace Picker3D.Player
                 return;
             }
 
+            CancelLandingStraighten();
             Stop();
             body.isKinematic = true;
             body.position = spawnPosition;
             body.rotation = spawnRotation;
             transform.SetPositionAndRotation(spawnPosition, spawnRotation);
             body.useGravity = false;
+            Debug.Log(
+                $"[MovementDebug][Ramp] ResetForLevelStart | spawn={spawnPosition} rotation={spawnRotation.eulerAngles}",
+                this);
         }
 
         public void ResetForLevelContinuation(Quaternion forwardRotation)
@@ -462,6 +535,7 @@ namespace Picker3D.Player
             }
 
             Vector3 continuationPosition = body.position;
+            CancelLandingStraighten();
             Stop();
             body.isKinematic = true;
             body.useGravity = false;
@@ -470,6 +544,9 @@ namespace Picker3D.Player
             transform.SetPositionAndRotation(
                 continuationPosition,
                 forwardRotation);
+            Debug.Log(
+                $"[MovementDebug][Ramp] ResetForLevelContinuation | position={continuationPosition} rotation={forwardRotation.eulerAngles}",
+                this);
         }
 
         public IEnumerator FlyToLevelStartRoutine(
@@ -484,6 +561,7 @@ namespace Picker3D.Player
                 yield break;
             }
 
+            CancelLandingStraighten();
             Stop();
             body.isKinematic = true;
             body.useGravity = false;
@@ -492,6 +570,9 @@ namespace Picker3D.Player
             Quaternion startRotation = body.rotation;
             float safeDuration = Mathf.Max(0.01f, duration);
             float elapsed = 0f;
+            Debug.Log(
+                $"[MovementDebug][Ramp] FlyToLevelStart started | from={startPosition} to={targetPosition} duration={safeDuration:F3}",
+                this);
 
             while (elapsed < safeDuration)
             {
@@ -523,6 +604,9 @@ namespace Picker3D.Player
             transform.SetPositionAndRotation(
                 targetPosition,
                 targetRotation);
+            Debug.Log(
+                $"[MovementDebug][Ramp] FlyToLevelStart completed | position={body.position} rotation={body.rotation.eulerAngles}",
+                this);
         }
 
         private bool EnsureDependencies()

@@ -25,10 +25,12 @@ namespace Picker3D.Level
         [SerializeField] private LevelPartCollectibleGenerator collectibleGenerator;
         [SerializeField] private DropboxRequirementDisplay requirementDisplay;
         [SerializeField] private Transform spinnerPickupSpawnPoint;
+        [SerializeField] private Transform missionRouteAnchor;
 
         [Header("Player Movement Limits")]
         [SerializeField] private Transform leftMovementLimit;
         [SerializeField] private Transform rightMovementLimit;
+        [SerializeField] private Transform movementRestrictionAnchor;
 
         private Coroutine resolutionRoutine;
         private GameFlowController gameFlow;
@@ -43,6 +45,7 @@ namespace Picker3D.Level
         public event Action<LevelPartController> PartSucceeded;
         public event Action<LevelPartController> PartFailed;
         public event Action<LevelPartController> TransitionCompleted;
+        public event Action<int> CollectiblesDeposited;
 
         public int RequiredBallCount =>
             runtimeRequiredCollectibleCount >= 0
@@ -57,9 +60,28 @@ namespace Picker3D.Level
         public GateController EntranceGate => entranceGate;
         public Transform LeftMovementLimit => leftMovementLimit;
         public Transform RightMovementLimit => rightMovementLimit;
+        public Transform MissionRouteAnchor
+        {
+            get
+            {
+                ResolveMissionRouteAnchor();
+                return missionRouteAnchor;
+            }
+        }
+        public Transform MovementRestrictionAnchor
+        {
+            get
+            {
+                ResolveMovementRestrictionAnchor();
+                return movementRestrictionAnchor;
+            }
+        }
 
         private void Start()
         {
+            ResolveMovementRestrictionAnchor();
+            ResolveMissionRouteAnchor();
+
             if (!ValidateReferences())
             {
                 enabled = false;
@@ -101,7 +123,8 @@ namespace Picker3D.Level
             isResolving = true;
             playerMovement.GetComponent<PlayerSpinnerPowerUp>()?.Deactivate();
             gameFlow.StopForDrop();
-            ballReleaseController.ReleaseCollectedItems();
+            ballReleaseController.ReleaseCollectedItems(
+                dropboxBallCounter);
             resolutionRoutine = StartCoroutine(ResolvePartRoutine());
         }
 
@@ -113,6 +136,15 @@ namespace Picker3D.Level
             }
 
             gameFlow.BeginPartResolution();
+
+            int depositedCount =
+                dropboxBallCounter.Count;
+
+            if (depositedCount > 0)
+            {
+                CollectiblesDeposited?.Invoke(
+                    depositedCount);
+            }
 
             if (dropboxBallCounter.Count < RequiredBallCount)
             {
@@ -251,6 +283,9 @@ namespace Picker3D.Level
             isValid &= ValidateReference(entranceGate, nameof(entranceGate));
             isValid &= ValidateReference(leftMovementLimit, nameof(leftMovementLimit));
             isValid &= ValidateReference(rightMovementLimit, nameof(rightMovementLimit));
+            isValid &= ValidateReference(
+                movementRestrictionAnchor,
+                nameof(movementRestrictionAnchor));
             isValid &= ValidateReference(gameFlow, nameof(gameFlow));
             isValid &= ValidateReference(ballReleaseController, nameof(ballReleaseController));
             isValid &= ValidateReference(restartService, nameof(restartService));
@@ -271,6 +306,48 @@ namespace Picker3D.Level
                 $"{nameof(LevelPartController)} on '{name}' requires '{fieldName}'.",
                 this);
             return false;
+        }
+
+        private void ResolveMovementRestrictionAnchor()
+        {
+            if (movementRestrictionAnchor != null)
+            {
+                return;
+            }
+
+            Transform[] childTransforms =
+                GetComponentsInChildren<Transform>(true);
+
+            foreach (Transform childTransform in childTransforms)
+            {
+                if (childTransform.name == "MovementRestirictionAnchor" ||
+                    childTransform.name == "MovementRestrictionAnchor")
+                {
+                    movementRestrictionAnchor = childTransform;
+                    return;
+                }
+            }
+        }
+
+        private void ResolveMissionRouteAnchor()
+        {
+            if (missionRouteAnchor != null)
+            {
+                return;
+            }
+
+            Transform[] childTransforms =
+                GetComponentsInChildren<Transform>(true);
+
+            foreach (Transform childTransform in childTransforms)
+            {
+                if (childTransform.name ==
+                    "MissionRouteAnchor")
+                {
+                    missionRouteAnchor = childTransform;
+                    return;
+                }
+            }
         }
 
         private void OnValidate()

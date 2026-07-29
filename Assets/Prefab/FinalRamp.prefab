@@ -651,7 +651,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   zoneId: 350
-  gemReward: 350
+  gemReward: 400
 --- !u!1 &7099233234833120421
 GameObject:
   m_ObjectHideFlags: 0
@@ -797,15 +797,15 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 116e163267a1fb141b814aba72d647a2, type: 2}
     - target: {fileID: 5287054318897200544, guid: d55a8827010882343bb5c6bafef956cd, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -6.0532193
+      value: -6.16
       objectReference: {fileID: 0}
     - target: {fileID: 5287054318897200544, guid: d55a8827010882343bb5c6bafef956cd, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.0959358
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5287054318897200544, guid: d55a8827010882343bb5c6bafef956cd, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.36942863
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 5287054318897200544, guid: d55a8827010882343bb5c6bafef956cd, type: 3}
       propertyPath: m_LocalRotation.w
@@ -861,6 +861,22 @@ PrefabInstance:
     - target: {fileID: 992011943682422328, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
       propertyPath: m_LocalPosition.z
       value: 7.07
+      objectReference: {fileID: 0}
+    - target: {fileID: 1118695985610332092, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 1118695985610332092, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 7.061001
+      objectReference: {fileID: 0}
+    - target: {fileID: 1263226867332686928, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 1263226867332686928, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -7.04
       objectReference: {fileID: 0}
     - target: {fileID: 2198540800250051104, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
       propertyPath: m_LocalPosition.z
@@ -921,6 +937,22 @@ PrefabInstance:
     - target: {fileID: 6088139355918334827, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7858221195625750989, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 7858221195625750989, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 7.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 8371049610407507591, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 8371049610407507591, guid: 7fd1bba5bb4868d4197c76b917481b29, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -7.06
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

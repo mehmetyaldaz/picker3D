@@ -8,7 +8,8 @@ namespace Picker3D.Data
     public sealed class DifficultyConfig : ScriptableObject
     {
         [SerializeField] private DifficultyType difficulty = DifficultyType.Easy;
-        [SerializeField] private int[] requiredCounts = { 10, 15, 20 };
+        [SerializeField] private int[] requiredCounts =
+            { 10, 15, 20, 25, 30 };
         [SerializeField, Min(0)] private int generatedCountBonus = 10;
 
         public DifficultyType Difficulty => difficulty;

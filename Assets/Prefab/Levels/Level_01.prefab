@@ -93,7 +93,7 @@ MonoBehaviour:
   - {fileID: 6937558250916284853, guid: 0616b8d18759ae84a912714565445bc2, type: 3}
   - {fileID: 4135456072293085020, guid: f60b26facc78c214bb9045be07ef4384, type: 3}
   spinnerPickupPrefab: {fileID: 3468414298908199933, guid: 55ce5eaa5cfff8143b92a3a7321ec4ec, type: 3}
-  spinnerPickupChance: 0.55
+  spinnerPickupChance: 0.45
 --- !u!1 &6073058204469074253
 GameObject:
   m_ObjectHideFlags: 0

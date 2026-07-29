@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: PlayerConfig
   m_EditorClassIdentifier: 
   forwardSpeed: 3
-  horizontalSensitivity: 8
-  maximumHorizontalSpeed: 30
-  ballReleaseImpulse: 5.5
+  horizontalSensitivity: 3.01
+  maximumHorizontalSpeed: 16
+  ballReleaseImpulse: 5.1

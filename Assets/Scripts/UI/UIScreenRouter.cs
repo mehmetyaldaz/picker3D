@@ -82,11 +82,8 @@ namespace Picker3D.UI
         private void BuildScreenRegistry()
         {
             screensById.Clear();
-
-            if (screens == null || screens.Length == 0)
-            {
-                screens = GetComponentsInChildren<UIScreenView>(true);
-            }
+            screens =
+                GetComponentsInChildren<UIScreenView>(true);
 
             for (int index = 0; index < screens.Length; index++)
             {
@@ -118,10 +115,8 @@ namespace Picker3D.UI
 
         private void OnValidate()
         {
-            if (screens == null || screens.Length == 0)
-            {
-                screens = GetComponentsInChildren<UIScreenView>(true);
-            }
+            screens =
+                GetComponentsInChildren<UIScreenView>(true);
         }
     }
 }

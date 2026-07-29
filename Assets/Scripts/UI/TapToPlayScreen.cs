@@ -8,9 +8,11 @@ namespace Picker3D.UI
     {
         [SerializeField] private Button tapButton;
         [SerializeField] private Button storeButton;
+        [SerializeField] private Button missionButton;
 
         public event Action Tapped;
         public event Action StoreRequested;
+        public event Action MissionRequested;
 
         private void Reset()
         {
@@ -19,6 +21,8 @@ namespace Picker3D.UI
 
         private void OnEnable()
         {
+            FindLocalReferences();
+
             if (tapButton != null)
             {
                 tapButton.onClick.AddListener(HandleTapped);
@@ -28,6 +32,12 @@ namespace Picker3D.UI
             {
                 storeButton.onClick.AddListener(
                     HandleStoreRequested);
+            }
+
+            if (missionButton != null)
+            {
+                missionButton.onClick.AddListener(
+                    HandleMissionRequested);
             }
         }
 
@@ -43,6 +53,12 @@ namespace Picker3D.UI
                 storeButton.onClick.RemoveListener(
                     HandleStoreRequested);
             }
+
+            if (missionButton != null)
+            {
+                missionButton.onClick.RemoveListener(
+                    HandleMissionRequested);
+            }
         }
 
         private void HandleTapped()
@@ -55,12 +71,35 @@ namespace Picker3D.UI
             StoreRequested?.Invoke();
         }
 
-        private void OnValidate()
+        private void HandleMissionRequested()
+        {
+            MissionRequested?.Invoke();
+        }
+
+        private void FindLocalReferences()
         {
             if (tapButton == null)
             {
                 tapButton = GetComponent<Button>();
             }
+
+            if (missionButton == null)
+            {
+                Transform missionButtonTransform =
+                    transform.Find("MissionButton");
+
+                if (missionButtonTransform != null)
+                {
+                    missionButton =
+                        missionButtonTransform
+                            .GetComponent<Button>();
+                }
+            }
+        }
+
+        private void OnValidate()
+        {
+            FindLocalReferences();
         }
     }
 }

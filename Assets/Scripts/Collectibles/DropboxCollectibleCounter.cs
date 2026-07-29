@@ -8,6 +8,9 @@ namespace Picker3D.Collectibles
     [RequireComponent(typeof(Collider))]
     public class DropboxCollectibleCounter : MonoBehaviour
     {
+        private const float ReleaseTargetSpread = 0.32f;
+        private const float GoldenAngleDegrees = 137.50776f;
+
         [SerializeField] private Collider countingTrigger;
 
         private readonly HashSet<CollectibleItem> countedItems = new();
@@ -16,6 +19,59 @@ namespace Picker3D.Collectibles
         public event Action<int> CountChanged;
 
         public int Count => countedItems.Count;
+        public Vector3 ReleaseTargetPosition =>
+            countingTrigger != null
+                ? countingTrigger.bounds.center
+                : transform.position;
+
+        public Vector3 GetReleaseTargetPosition(
+            int itemIndex,
+            int itemCount)
+        {
+            if (countingTrigger == null)
+            {
+                return transform.position;
+            }
+
+            int safeItemCount = Mathf.Max(1, itemCount);
+            int safeItemIndex = Mathf.Max(0, itemIndex);
+            float radius =
+                Mathf.Sqrt(
+                    (safeItemIndex + 1f) /
+                    safeItemCount) *
+                ReleaseTargetSpread;
+            float angle =
+                safeItemIndex *
+                GoldenAngleDegrees *
+                Mathf.Deg2Rad;
+            float horizontalOffset =
+                Mathf.Cos(angle) * radius;
+            float depthOffset =
+                Mathf.Sin(angle) * radius;
+
+            if (countingTrigger is BoxCollider boxCollider)
+            {
+                Vector3 localTarget =
+                    boxCollider.center +
+                    new Vector3(
+                        horizontalOffset *
+                        boxCollider.size.x,
+                        0f,
+                        depthOffset *
+                        boxCollider.size.z);
+                return boxCollider.transform.TransformPoint(
+                    localTarget);
+            }
+
+            Bounds triggerBounds = countingTrigger.bounds;
+            return triggerBounds.center +
+                   new Vector3(
+                       horizontalOffset *
+                       triggerBounds.size.x,
+                       0f,
+                       depthOffset *
+                       triggerBounds.size.z);
+        }
 
         protected virtual void Reset()
         {

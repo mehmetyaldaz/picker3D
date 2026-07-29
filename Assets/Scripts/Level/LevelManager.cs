@@ -4,6 +4,7 @@ using Picker3D.Collectibles;
 using Picker3D.Core;
 using Picker3D.Data;
 using Picker3D.Player;
+using Picker3D.UI;
 using UnityEngine;
 
 namespace Picker3D.Level
@@ -11,6 +12,9 @@ namespace Picker3D.Level
     [DisallowMultipleComponent]
     public sealed class LevelManager : MonoBehaviour
     {
+        private const string CurrentLevelIndexPlayerPrefsKey =
+            "picker3d_current_level_index";
+
         [Header("Level Source")]
         [SerializeField] private bool instantiateDefinitionPrefab;
         [SerializeField] private LevelDefinition levelDefinition;
@@ -38,6 +42,7 @@ namespace Picker3D.Level
         [SerializeField] private PlayerMovement playerMovement;
         [SerializeField] private ForwardOnlyCameraTarget cameraFollowTarget;
         [SerializeField] private GemWallet gemWallet;
+        [SerializeField] private GemBalanceHUD gemBalanceHUD;
 
         private GameObject activeLevelRoot;
         private GameObject preparedLevelRoot;
@@ -50,6 +55,7 @@ namespace Picker3D.Level
 
         public event Action<int> LevelStarted;
         public event Action<int> LevelFinished;
+        public event Action<int> CollectiblesDeposited;
 
         public LevelController ActiveLevel { get; private set; }
         public int CurrentLevelNumber => currentLevelIndex + 1;
@@ -60,13 +66,20 @@ namespace Picker3D.Level
 
         private void Awake()
         {
+            if (gemBalanceHUD == null)
+            {
+                gemBalanceHUD =
+                    FindFirstObjectByType<GemBalanceHUD>(
+                        FindObjectsInactive.Include);
+            }
+
             if (!ValidateRuntimeReferences())
             {
                 enabled = false;
                 return;
             }
 
-            currentLevelIndex = 0;
+            currentLevelIndex = LoadSavedLevelIndex();
             activeDifficulty = SelectDifficulty(currentLevelIndex);
 
             if (instantiateDefinitionPrefab)
@@ -249,6 +262,7 @@ namespace Picker3D.Level
             }
 
             gemWallet.AddGems(gemReward);
+            SaveLevelIndex(GetNextLevelIndex(currentLevelIndex));
             LevelFinished?.Invoke(CurrentLevelNumber);
             levelTransitionRoutine = StartCoroutine(
                 AdvanceToPreparedLevelRoutine());
@@ -256,6 +270,12 @@ namespace Picker3D.Level
 
         private IEnumerator AdvanceToPreparedLevelRoutine()
         {
+            if (gemBalanceHUD != null)
+            {
+                yield return
+                    gemBalanceHUD.WaitForRewardAnimationRoutine();
+            }
+
             if (nextLevelDelay > 0f)
             {
                 yield return new WaitForSeconds(nextLevelDelay);
@@ -311,7 +331,9 @@ namespace Picker3D.Level
             preparedLevelRoot = null;
             preparedLevel = null;
             preparedDifficulty = null;
-            currentLevelIndex++;
+            currentLevelIndex =
+                GetNextLevelIndex(currentLevelIndex);
+            SaveLevelIndex(currentLevelIndex);
 
             SubscribeToActiveLevel();
 
@@ -426,6 +448,8 @@ namespace Picker3D.Level
             {
                 ActiveLevel.LevelCompleted +=
                     HandleActiveLevelCompleted;
+                ActiveLevel.CollectiblesDeposited +=
+                    HandleCollectiblesDeposited;
             }
         }
 
@@ -435,7 +459,16 @@ namespace Picker3D.Level
             {
                 ActiveLevel.LevelCompleted -=
                     HandleActiveLevelCompleted;
+                ActiveLevel.CollectiblesDeposited -=
+                    HandleCollectiblesDeposited;
             }
+        }
+
+        private void HandleCollectiblesDeposited(
+            int depositedCount)
+        {
+            CollectiblesDeposited?.Invoke(
+                depositedCount);
         }
 
         private int CreateLevelSeed(int levelIndex)
@@ -444,6 +477,36 @@ namespace Picker3D.Level
             {
                 return levelSeed + levelIndex * 104729;
             }
+        }
+
+        private int LoadSavedLevelIndex()
+        {
+            int savedIndex = PlayerPrefs.GetInt(
+                CurrentLevelIndexPlayerPrefsKey,
+                0);
+            return Mathf.Clamp(
+                savedIndex,
+                0,
+                int.MaxValue - 1);
+        }
+
+        private void SaveLevelIndex(int levelIndex)
+        {
+            int safeLevelIndex = Mathf.Clamp(
+                levelIndex,
+                0,
+                int.MaxValue - 1);
+            PlayerPrefs.SetInt(
+                CurrentLevelIndexPlayerPrefsKey,
+                safeLevelIndex);
+            PlayerPrefs.Save();
+        }
+
+        private int GetNextLevelIndex(int levelIndex)
+        {
+            return levelIndex < int.MaxValue - 1
+                ? levelIndex + 1
+                : int.MaxValue - 1;
         }
 
         private DifficultyConfig SelectDifficulty(int levelIndex)

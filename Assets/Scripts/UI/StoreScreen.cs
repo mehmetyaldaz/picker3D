@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Picker3D.Core;
 using Picker3D.Cosmetics;
@@ -27,6 +28,13 @@ namespace Picker3D.UI
         [SerializeField] private TMP_Text priceText;
         [SerializeField] private GameObject outOfStockButton;
 
+        [Header("Unlock Animation")]
+        [SerializeField] private GameObject animationOverlay;
+        [SerializeField, Min(2)] private int animationStepCount = 12;
+        [SerializeField, Min(0.01f)] private float firstStepDuration = 0.06f;
+        [SerializeField, Min(0.01f)] private float lastStepDuration = 0.3f;
+        [SerializeField, Min(0f)] private float resultHoldDuration = 0.75f;
+
         [Header("Systems")]
         [SerializeField] private GemWallet gemWallet;
         [SerializeField] private PlayerCosmeticController
@@ -40,11 +48,17 @@ namespace Picker3D.UI
         private Button[] colorItemButtons;
         private GameObject[] lockedOverlayItems;
         private GameObject[] selectedOverlayItems;
+        private GameObject[] animationOverlayItems;
         private UnityAction[] skinItemActions;
         private UnityAction[] colorItemActions;
         private CosmeticCategory activeCategory =
             CosmeticCategory.Skin;
         private string lastLoggedCosmeticState;
+        private Coroutine unlockAnimationRoutine;
+        private CosmeticCategory pendingUnlockCategory;
+        private int pendingUnlockIndex = -1;
+        private bool hasPendingUnlock;
+        private bool unlockAnimationPlaying;
 
         public event Action CloseRequested;
 
@@ -52,6 +66,12 @@ namespace Picker3D.UI
         {
             FindLocalReferences();
             CacheItemViews();
+
+            if (!unlockAnimationPlaying &&
+                animationOverlay != null)
+            {
+                animationOverlay.SetActive(false);
+            }
 
             if (closeButton != null)
             {
@@ -115,6 +135,7 @@ namespace Picker3D.UI
             }
 
             UnregisterItemListeners();
+            StopUnlockAnimation(true);
         }
 
         protected override void OnShown()
@@ -127,6 +148,11 @@ namespace Picker3D.UI
 
         private void HandleCloseRequested()
         {
+            if (unlockAnimationPlaying)
+            {
+                return;
+            }
+
             CloseRequested?.Invoke();
         }
 
@@ -143,6 +169,11 @@ namespace Picker3D.UI
         private void ShowCategory(
             CosmeticCategory category)
         {
+            if (unlockAnimationPlaying)
+            {
+                return;
+            }
+
             activeCategory = category;
             SetSectionVisibility(
                 category == CosmeticCategory.Skin);
@@ -164,7 +195,8 @@ namespace Picker3D.UI
 
         private void HandleUnlockRandom()
         {
-            if (cosmeticController == null ||
+            if (unlockAnimationPlaying ||
+                cosmeticController == null ||
                 gemWallet == null ||
                 !cosmeticController.TryGetRandomLockedIndex(
                     activeCategory,
@@ -182,19 +214,281 @@ namespace Picker3D.UI
                 return;
             }
 
+            pendingUnlockCategory = activeCategory;
+            pendingUnlockIndex = itemIndex;
+            hasPendingUnlock = true;
+            unlockAnimationPlaying = true;
+            SetStoreInteraction(false);
+
+            if (animationOverlay == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(StoreScreen)} could not find AnimationOverlay; the cosmetic will be unlocked without the preview animation.",
+                    this);
+                CompletePendingUnlock();
+                StopUnlockAnimation(false);
+                return;
+            }
+
+            animationOverlay.SetActive(true);
+            unlockAnimationRoutine = StartCoroutine(
+                PlayUnlockAnimationRoutine(
+                    pendingUnlockCategory,
+                    pendingUnlockIndex));
+        }
+
+        private IEnumerator PlayUnlockAnimationRoutine(
+            CosmeticCategory category,
+            int unlockedItemIndex)
+        {
+            List<int> candidateIndices =
+                GetAnimationCandidateIndices(category);
+
+            if (!candidateIndices.Contains(
+                    unlockedItemIndex))
+            {
+                candidateIndices.Add(unlockedItemIndex);
+            }
+
+            int stepCount = Mathf.Max(
+                2,
+                animationStepCount);
+            int previousItemIndex = -1;
+
+            for (int stepIndex = 0;
+                 stepIndex < stepCount;
+                 stepIndex++)
+            {
+                bool isFinalStep =
+                    stepIndex == stepCount - 1;
+                int previewItemIndex =
+                    isFinalStep
+                        ? unlockedItemIndex
+                        : GetRandomAnimationIndex(
+                            candidateIndices,
+                            previousItemIndex);
+
+                ShowAnimationPreview(
+                    category,
+                    previewItemIndex);
+                previousItemIndex = previewItemIndex;
+
+                float progress =
+                    stepCount > 1
+                        ? (float)stepIndex /
+                          (stepCount - 1)
+                        : 1f;
+                float stepDuration = Mathf.Lerp(
+                    firstStepDuration,
+                    lastStepDuration,
+                    progress * progress);
+
+                yield return new WaitForSecondsRealtime(
+                    stepDuration);
+            }
+
+            CompletePendingUnlock();
+            RefreshCosmeticState();
+
+            if (resultHoldDuration > 0f)
+            {
+                yield return new WaitForSecondsRealtime(
+                    resultHoldDuration);
+            }
+
+            unlockAnimationRoutine = null;
+            StopUnlockAnimation(false);
+        }
+
+        private List<int> GetAnimationCandidateIndices(
+            CosmeticCategory category)
+        {
+            Button[] itemButtons =
+                GetItemButtons(category);
+            int candidateCount = Mathf.Min(
+                cosmeticController.GetItemCount(category),
+                itemButtons != null
+                    ? itemButtons.Length
+                    : 0,
+                animationOverlayItems != null
+                    ? animationOverlayItems.Length
+                    : 0);
+            List<int> candidateIndices = new();
+
+            for (int index = 0;
+                 index < candidateCount;
+                 index++)
+            {
+                if (itemButtons[index] != null &&
+                    animationOverlayItems[index] != null &&
+                    !cosmeticController.IsUnlocked(
+                        category,
+                        index))
+                {
+                    candidateIndices.Add(index);
+                }
+            }
+
+            return candidateIndices;
+        }
+
+        private int GetRandomAnimationIndex(
+            List<int> candidateIndices,
+            int previousItemIndex)
+        {
+            if (candidateIndices.Count == 0)
+            {
+                return pendingUnlockIndex;
+            }
+
+            if (candidateIndices.Count == 1)
+            {
+                return candidateIndices[0];
+            }
+
+            int itemIndex;
+
+            do
+            {
+                itemIndex =
+                    candidateIndices[
+                        UnityEngine.Random.Range(
+                            0,
+                            candidateIndices.Count)];
+            }
+            while (itemIndex == previousItemIndex);
+
+            return itemIndex;
+        }
+
+        private void ShowAnimationPreview(
+            CosmeticCategory category,
+            int itemIndex)
+        {
+            HideAllAnimationOverlayItems();
+
+            if (animationOverlayItems == null ||
+                itemIndex < 0 ||
+                itemIndex >= animationOverlayItems.Length ||
+                animationOverlayItems[itemIndex] == null ||
+                cosmeticController.IsUnlocked(
+                    category,
+                    itemIndex))
+            {
+                return;
+            }
+
+            animationOverlayItems[itemIndex].SetActive(true);
+        }
+
+        private void CompletePendingUnlock()
+        {
+            if (!hasPendingUnlock)
+            {
+                return;
+            }
+
             bool unlocked =
+                cosmeticController != null &&
                 cosmeticController.Unlock(
-                activeCategory,
-                itemIndex);
+                    pendingUnlockCategory,
+                    pendingUnlockIndex);
 
             if (unlocked)
             {
                 Debug.Log(
-                    $"Unlocked {activeCategory} {itemIndex + 1}.",
+                    $"Unlocked {pendingUnlockCategory} {pendingUnlockIndex + 1}.",
                     this);
             }
 
+            hasPendingUnlock = false;
+            pendingUnlockIndex = -1;
+        }
+
+        private void StopUnlockAnimation(
+            bool completePendingUnlock)
+        {
+            if (unlockAnimationRoutine != null)
+            {
+                StopCoroutine(unlockAnimationRoutine);
+                unlockAnimationRoutine = null;
+            }
+
+            if (completePendingUnlock)
+            {
+                CompletePendingUnlock();
+            }
+
+            HideAllAnimationOverlayItems();
+
+            if (animationOverlay != null)
+            {
+                animationOverlay.SetActive(false);
+            }
+
+            unlockAnimationPlaying = false;
+            SetStoreInteraction(true);
             RefreshCosmeticState();
+        }
+
+        private void HideAllAnimationOverlayItems()
+        {
+            if (animationOverlayItems == null)
+            {
+                return;
+            }
+
+            foreach (GameObject overlayItem
+                     in animationOverlayItems)
+            {
+                if (overlayItem != null)
+                {
+                    overlayItem.SetActive(false);
+                }
+            }
+        }
+
+        private void SetStoreInteraction(bool isInteractable)
+        {
+            if (closeButton != null)
+            {
+                closeButton.interactable = isInteractable;
+            }
+
+            if (skinsButton != null)
+            {
+                skinsButton.interactable = isInteractable;
+            }
+
+            if (colorsButton != null)
+            {
+                colorsButton.interactable = isInteractable;
+            }
+
+            SetItemButtonInteraction(
+                skinItemButtons,
+                isInteractable);
+            SetItemButtonInteraction(
+                colorItemButtons,
+                isInteractable);
+        }
+
+        private void SetItemButtonInteraction(
+            Button[] buttons,
+            bool isInteractable)
+        {
+            if (buttons == null)
+            {
+                return;
+            }
+
+            foreach (Button button in buttons)
+            {
+                if (button != null)
+                {
+                    button.interactable = isInteractable;
+                }
+            }
         }
 
         private void HandleItemPressed(
@@ -278,7 +572,8 @@ namespace Picker3D.UI
                     !isUnlocked);
                 selectedOverlayItems[index].SetActive(
                     isSelected);
-                activeButtons[index].interactable = true;
+                activeButtons[index].interactable =
+                    !unlockAnimationPlaying;
                 hasLockedItem |= !isUnlocked;
 
                 if (isUnlocked)
@@ -301,6 +596,7 @@ namespace Picker3D.UI
                 unlockRandomButton.gameObject.SetActive(
                     hasLockedItem);
                 unlockRandomButton.interactable =
+                    !unlockAnimationPlaying &&
                     hasLockedItem &&
                     gemWallet != null &&
                     gemWallet.TotalGems >= price;
@@ -440,9 +736,13 @@ namespace Picker3D.UI
                 GetDirectChildObjects(lockedOverlay);
             selectedOverlayItems =
                 GetDirectChildObjects(selectedOverlay);
+            animationOverlayItems =
+                GetDirectChildObjects(animationOverlay);
 
             DisableOverlayRaycasts(lockedOverlay);
             DisableOverlayRaycasts(selectedOverlay);
+            DisableOverlayRaycasts(animationOverlay);
+            HideAllAnimationOverlayItems();
         }
 
         private void DisableOverlayRaycasts(
@@ -536,6 +836,9 @@ namespace Picker3D.UI
                     "UnlockRandomButton");
             outOfStockButton ??=
                 FindDirectChild("OutOfStockButton");
+            animationOverlay ??=
+                FindDirectChildIgnoreCase(
+                    "AnimationOverlay");
 
             if (priceText == null &&
                 unlockRandomButton != null)
@@ -568,10 +871,44 @@ namespace Picker3D.UI
                 : null;
         }
 
+        private GameObject FindDirectChildIgnoreCase(
+            string childName)
+        {
+            for (int index = 0;
+                 index < transform.childCount;
+                 index++)
+            {
+                Transform child =
+                    transform.GetChild(index);
+
+                if (string.Equals(
+                        child.name,
+                        childName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return child.gameObject;
+                }
+            }
+
+            return null;
+        }
+
         private void OnValidate()
         {
             skinPrice = Mathf.Max(0, skinPrice);
             colorPrice = Mathf.Max(0, colorPrice);
+            animationStepCount = Mathf.Max(
+                2,
+                animationStepCount);
+            firstStepDuration = Mathf.Max(
+                0.01f,
+                firstStepDuration);
+            lastStepDuration = Mathf.Max(
+                0.01f,
+                lastStepDuration);
+            resultHoldDuration = Mathf.Max(
+                0f,
+                resultHoldDuration);
             FindLocalReferences();
         }
     }
