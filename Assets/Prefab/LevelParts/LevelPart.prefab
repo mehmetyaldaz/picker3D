@@ -43,6 +43,7 @@ Transform:
   - {fileID: 3520240131856061039}
   - {fileID: 7827513317404136594}
   - {fileID: 8063422160370136896}
+  - {fileID: 4400764306455002190}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &940898648209565595
@@ -67,10 +68,10 @@ MonoBehaviour:
   collectibleGenerator: {fileID: 5649186081277362870}
   requirementDisplay: {fileID: 7045873323098489203}
   spinnerPickupSpawnPoint: {fileID: 7827513317404136594}
-  missionRouteAnchor: {fileID: 0}
+  missionRouteAnchor: {fileID: 8063422160370136896}
   leftMovementLimit: {fileID: 749769812622954829}
   rightMovementLimit: {fileID: 6815066000533107942}
-  movementRestrictionAnchor: {fileID: 0}
+  movementRestrictionAnchor: {fileID: 3520240131856061039}
 --- !u!114 &5649186081277362870
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -91,7 +92,13 @@ MonoBehaviour:
   - {fileID: 6627360257217412015, guid: d421b3ab40b8ace4788f4400c130fb5f, type: 3}
   - {fileID: -7457102411169338818, guid: b55f204840314c54da8ffbcebf961774, type: 3}
   - {fileID: -2579075167478313005, guid: 02d20892bf835a84ca2adc5455833c03, type: 3}
-  largeLayoutChance: 0.5
+  largeLayoutChance: 0
+  flyingSpawnAnchor: {fileID: 4400764306455002190}
+  flyingSpawnerPrefab: {fileID: 5357763674964873086, guid: f0097efb23e560247ae7fc95986652bd, type: 3}
+  flyingRoutePrefabs:
+  - {fileID: 1158510123623869842, guid: f67eb85181b65e04cb97cb2d53bb8af5, type: 3}
+  - {fileID: -9032655070927392251, guid: 2bd907d168d91f64aaf9e3b2adad411a, type: 3}
+  flyingLayoutChance: 0.9
 --- !u!114 &8409472101833122534
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -329,6 +336,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerTrigger: {fileID: 3136838328630776214}
+--- !u!1 &6395506800710553902
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4400764306455002190}
+  m_Layer: 0
+  m_Name: FlyingSpawnerAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4400764306455002190
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6395506800710553902}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.51, y: 6.96, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 210487937460563682}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6585188953008131498
 GameObject:
   m_ObjectHideFlags: 0

@@ -197,16 +197,7 @@ namespace Picker3D.Player
             if (horizontalStateChanged &&
                 dragInput != null)
             {
-                dragInput.enabled = true;
-
-                if (enableHorizontalMovement)
-                {
-                    dragInput.RequireFreshPointerPress();
-                }
-                else
-                {
-                    dragInput.Clear();
-                }
+                dragInput.Clear();
             }
 
             if (forwardMovementEnabled ||

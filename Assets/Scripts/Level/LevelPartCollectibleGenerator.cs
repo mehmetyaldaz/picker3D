@@ -8,6 +8,13 @@ namespace Picker3D.Level
     [DisallowMultipleComponent]
     public sealed class LevelPartCollectibleGenerator : MonoBehaviour
     {
+        private enum GenerationMode
+        {
+            Small,
+            Large,
+            Flying
+        }
+
         [SerializeField] private LevelPartCollectibleLayoutSetup layoutSetup;
         [SerializeField] private CollectiblePrefabCatalog prefabCatalog;
         [SerializeField] private CollectiblePalette colorPalette;
@@ -17,8 +24,15 @@ namespace Picker3D.Level
         [SerializeField] private LargeCollectibleSplitter[] largeCollectiblePrefabs;
         [SerializeField, Range(0f, 1f)] private float largeLayoutChance;
 
+        [Header("Flying Collectibles")]
+        [SerializeField] private Transform flyingSpawnAnchor;
+        [SerializeField] private FlyingCollectibleSpawner flyingSpawnerPrefab;
+        [SerializeField] private FlyingCollectibleRoute[] flyingRoutePrefabs;
+        [SerializeField, Range(0f, 1f)] private float flyingLayoutChance;
+
         private readonly List<CollectibleItem> generatedItems = new();
         private GameObject activeLayoutRoot;
+        private FlyingCollectibleSpawner activeFlyingSpawner;
         private int generatedCollectibleCount;
 
         public int GeneratedCount => generatedCollectibleCount;
@@ -36,8 +50,18 @@ namespace Picker3D.Level
             ClearGeneratedObjects();
 
             System.Random random = new(seed);
+            GenerationMode generationMode =
+                SelectGenerationMode(random);
 
-            if (ShouldGenerateLargeLayout(random))
+            if (generationMode == GenerationMode.Flying)
+            {
+                return GenerateFlyingLayout(
+                    requiredCount,
+                    generatedCount,
+                    random);
+            }
+
+            if (generationMode == GenerationMode.Large)
             {
                 return GenerateLargeLayout(
                     requiredCount,
@@ -49,6 +73,11 @@ namespace Picker3D.Level
                 requiredCount,
                 generatedCount,
                 random);
+        }
+
+        public void SetPartActive(bool isActive)
+        {
+            activeFlyingSpawner?.SetRunning(isActive);
         }
 
         private bool GenerateSmallLayout(
@@ -175,22 +204,109 @@ namespace Picker3D.Level
             return true;
         }
 
-        private bool ShouldGenerateLargeLayout(System.Random random)
+        private bool GenerateFlyingLayout(
+            int requiredCount,
+            int generatedCount,
+            System.Random random)
         {
-            if (largeLayoutChance <= 0f)
+            if (!HasValidFlyingConfiguration())
             {
                 return false;
             }
 
-            if (!HasValidLargeConfiguration())
+            FlyingCollectibleRoute routePrefab =
+                GetRandomFlyingRoutePrefab(random);
+            CollectibleItem partPrefab =
+                prefabCatalog.GetRandomPrefab(random);
+
+            if (routePrefab == null || partPrefab == null)
             {
+                return false;
+            }
+
+            GameObject flyingContentRoot =
+                new GameObject("FlyingCollectibleContent");
+            flyingContentRoot.transform.SetParent(
+                flyingSpawnAnchor,
+                false);
+            activeLayoutRoot = flyingContentRoot;
+
+            FlyingCollectibleRoute activeRoute =
+                Instantiate(
+                    routePrefab,
+                    flyingContentRoot.transform);
+            activeRoute.name = routePrefab.name;
+            activeRoute.transform.SetLocalPositionAndRotation(
+                Vector3.zero,
+                Quaternion.identity);
+
+            activeFlyingSpawner = Instantiate(
+                flyingSpawnerPrefab,
+                flyingContentRoot.transform);
+            activeFlyingSpawner.name =
+                flyingSpawnerPrefab.name;
+            activeFlyingSpawner.transform
+                .SetLocalPositionAndRotation(
+                    Vector3.zero,
+                    Quaternion.identity);
+
+            Color partColor =
+                colorPalette.GetRandomColor(random);
+
+            if (!activeFlyingSpawner.Configure(
+                    activeRoute,
+                    partPrefab,
+                    flyingContentRoot.transform,
+                    partColor,
+                    generatedCount,
+                    random.Next()))
+            {
+                ClearGeneratedObjects();
+                return false;
+            }
+
+            generatedCollectibleCount = generatedCount;
+            Debug.Log(
+                $"Prepared flying collectible dropper for '{name}'. It will drop {generatedCount} {partPrefab.Shape} collectibles for requirement {requiredCount}.",
+                this);
+            return true;
+        }
+
+        private GenerationMode SelectGenerationMode(
+            System.Random random)
+        {
+            double selection = random.NextDouble();
+
+            if (flyingLayoutChance > 0f &&
+                selection < flyingLayoutChance)
+            {
+                if (HasValidFlyingConfiguration())
+                {
+                    return GenerationMode.Flying;
+                }
+
                 Debug.LogError(
-                    $"{nameof(LevelPartCollectibleGenerator)} on '{name}' has Large Layout Chance above zero but its large collectible references are incomplete.",
+                    $"{nameof(LevelPartCollectibleGenerator)} on '{name}' selected Flying mode but its flying references are incomplete.",
                     this);
-                return false;
+                return GenerationMode.Small;
             }
 
-            return random.NextDouble() < largeLayoutChance;
+            if (largeLayoutChance > 0f &&
+                selection <
+                flyingLayoutChance +
+                largeLayoutChance)
+            {
+                if (HasValidLargeConfiguration())
+                {
+                    return GenerationMode.Large;
+                }
+
+                Debug.LogError(
+                    $"{nameof(LevelPartCollectibleGenerator)} on '{name}' selected Large mode but its large collectible references are incomplete.",
+                    this);
+            }
+
+            return GenerationMode.Small;
         }
 
         private bool HasValidLargeConfiguration()
@@ -214,6 +330,44 @@ namespace Picker3D.Level
             return true;
         }
 
+        private bool HasValidFlyingConfiguration()
+        {
+            if (flyingSpawnAnchor == null ||
+                flyingSpawnerPrefab == null ||
+                flyingRoutePrefabs == null ||
+                flyingRoutePrefabs.Length == 0)
+            {
+                return false;
+            }
+
+            for (int index = 0;
+                 index < flyingRoutePrefabs.Length;
+                 index++)
+            {
+                if (flyingRoutePrefabs[index] == null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private FlyingCollectibleRoute GetRandomFlyingRoutePrefab(
+            System.Random random)
+        {
+            if (!HasValidFlyingConfiguration())
+            {
+                Debug.LogError(
+                    $"{nameof(LevelPartCollectibleGenerator)} on '{name}' has invalid flying collectible references.",
+                    this);
+                return null;
+            }
+
+            return flyingRoutePrefabs[
+                random.Next(flyingRoutePrefabs.Length)];
+        }
+
         private LargeCollectibleSplitter GetRandomLargeCollectiblePrefab(
             System.Random random)
         {
@@ -231,6 +385,8 @@ namespace Picker3D.Level
 
         public void ClearGeneratedObjects()
         {
+            activeFlyingSpawner = null;
+
             if (activeLayoutRoot != null)
             {
                 Destroy(activeLayoutRoot);
@@ -287,6 +443,14 @@ namespace Picker3D.Level
             {
                 largeLayoutSetup =
                     GetComponent<LevelPartLargeCollectibleLayoutSetup>();
+            }
+
+            if (flyingLayoutChance +
+                largeLayoutChance > 1f)
+            {
+                Debug.LogWarning(
+                    $"{nameof(LevelPartCollectibleGenerator)} on '{name}' has Flying and Large chances whose sum is above 1. Small mode will not be selected.",
+                    this);
             }
         }
     }
