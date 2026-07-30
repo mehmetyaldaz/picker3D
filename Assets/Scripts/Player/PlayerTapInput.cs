@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
+using EnhancedTouch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Picker3D.Player
 {
@@ -7,40 +9,46 @@ namespace Picker3D.Player
     public sealed class PlayerTapInput : MonoBehaviour
     {
         private int pendingTapCount;
-        private bool wasPointerPressed;
+        private int lastTouchTapFrame = -1;
+
+        private void OnEnable()
+        {
+            if (!EnhancedTouchSupport.enabled)
+            {
+                EnhancedTouchSupport.Enable();
+            }
+
+            EnhancedTouch.onFingerDown += HandleFingerDown;
+        }
 
         private void Update()
         {
-            bool isPointerPressed = IsPointerPressed();
-
-            if (isPointerPressed && !wasPointerPressed)
+            if (lastTouchTapFrame == Time.frameCount)
             {
-                pendingTapCount++;
+                return;
             }
 
-            wasPointerPressed = isPointerPressed;
-        }
-
-        private bool IsPointerPressed()
-        {
             Mouse mouse = Mouse.current;
 
             if (mouse != null &&
-                mouse.leftButton.isPressed)
+                mouse.leftButton.wasPressedThisFrame)
             {
-                return true;
-            }
-
-            Touchscreen touchscreen = Touchscreen.current;
-
-            if (touchscreen != null &&
-                touchscreen.primaryTouch.press.isPressed)
-            {
-                return true;
+                pendingTapCount++;
+                return;
             }
 
             Pen pen = Pen.current;
-            return pen != null && pen.tip.isPressed;
+
+            if (pen != null && pen.tip.wasPressedThisFrame)
+            {
+                pendingTapCount++;
+            }
+        }
+
+        private void HandleFingerDown(Finger finger)
+        {
+            pendingTapCount++;
+            lastTouchTapFrame = Time.frameCount;
         }
 
         public int ConsumeTapCount()
@@ -57,8 +65,9 @@ namespace Picker3D.Player
 
         private void OnDisable()
         {
+            EnhancedTouch.onFingerDown -= HandleFingerDown;
             Clear();
-            wasPointerPressed = false;
+            lastTouchTapFrame = -1;
         }
     }
 }

@@ -6,6 +6,7 @@ using Picker3D.Data;
 using Picker3D.Player;
 using Picker3D.UI;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Picker3D.Level
 {
@@ -17,9 +18,16 @@ namespace Picker3D.Level
 
         [Header("Level Source")]
         [SerializeField] private bool instantiateDefinitionPrefab;
-        [SerializeField] private LevelDefinition levelDefinition;
+        [FormerlySerializedAs("levelDefinition")]
+        [SerializeField] private LevelDefinition threePartLevelDefinition;
+        [SerializeField] private LevelDefinition fourPartLevelDefinition;
+        [SerializeField] private LevelDefinition fivePartLevelDefinition;
         [SerializeField] private Transform levelParent;
         [SerializeField] private LevelController sceneLevel;
+
+        [Header("Level Length Progression")]
+        [SerializeField, Min(1)] private int fourPartUnlockLevel = 11;
+        [SerializeField, Min(2)] private int fivePartUnlockLevel = 21;
 
         [Header("Runtime Generation")]
         [SerializeField] private bool generateRuntimeCollectibles;
@@ -153,8 +161,11 @@ namespace Picker3D.Level
             if (infiniteGameplay)
             {
                 isValid &= instantiateDefinitionPrefab &&
-                           levelDefinition != null &&
-                           levelDefinition.LevelPrefab != null;
+                           HasValidLevelDefinitions();
+            }
+            else if (instantiateDefinitionPrefab)
+            {
+                isValid &= HasValidLevelDefinitions();
             }
 
             if (!isValid)
@@ -408,18 +419,58 @@ namespace Picker3D.Level
 
         private GameObject InstantiateDefinitionRoot(int levelNumber)
         {
-            if (levelDefinition == null ||
-                levelDefinition.LevelPrefab == null)
+            LevelDefinition selectedDefinition =
+                SelectLevelDefinition(levelNumber);
+
+            if (selectedDefinition == null ||
+                selectedDefinition.LevelPrefab == null)
             {
                 return null;
             }
 
             GameObject instance = Instantiate(
-                levelDefinition.LevelPrefab,
+                selectedDefinition.LevelPrefab,
                 levelParent);
             instance.name =
-                $"{levelDefinition.LevelPrefab.name}_{levelNumber:000}";
+                $"{selectedDefinition.LevelPrefab.name}_{levelNumber:000}";
             return instance;
+        }
+
+        private LevelDefinition SelectLevelDefinition(int levelNumber)
+        {
+            int safeLevelNumber = Mathf.Max(1, levelNumber);
+
+            if (safeLevelNumber < fourPartUnlockLevel)
+            {
+                return threePartLevelDefinition;
+            }
+
+            int availableTemplateCount =
+                safeLevelNumber < fivePartUnlockLevel
+                    ? 2
+                    : 3;
+            System.Random random = new System.Random(
+                unchecked(
+                    levelSeed * 73856093 ^
+                    safeLevelNumber * 19349663));
+
+            return random.Next(availableTemplateCount) switch
+            {
+                0 => threePartLevelDefinition,
+                1 => fourPartLevelDefinition,
+                _ => fivePartLevelDefinition
+            };
+        }
+
+        private bool HasValidLevelDefinitions()
+        {
+            return
+                threePartLevelDefinition != null &&
+                threePartLevelDefinition.LevelPrefab != null &&
+                fourPartLevelDefinition != null &&
+                fourPartLevelDefinition.LevelPrefab != null &&
+                fivePartLevelDefinition != null &&
+                fivePartLevelDefinition.LevelPrefab != null;
         }
 
         private LevelController FindLevelController(GameObject levelRoot)
@@ -582,6 +633,12 @@ namespace Picker3D.Level
 
         private void OnValidate()
         {
+            fourPartUnlockLevel = Mathf.Max(
+                1,
+                fourPartUnlockLevel);
+            fivePartUnlockLevel = Mathf.Max(
+                fourPartUnlockLevel + 1,
+                fivePartUnlockLevel);
             nextLevelDelay = Mathf.Max(0f, nextLevelDelay);
             nextGateOpenDuration = Mathf.Max(0f, nextGateOpenDuration);
             playerTransferDuration = Mathf.Max(
@@ -606,10 +663,11 @@ namespace Picker3D.Level
                     this);
             }
 
-            if (instantiateDefinitionPrefab && levelDefinition == null)
+            if (instantiateDefinitionPrefab &&
+                !HasValidLevelDefinitions())
             {
                 Debug.LogWarning(
-                    $"{nameof(LevelManager)} on '{name}' has no level definition.",
+                    $"{nameof(LevelManager)} on '{name}' requires valid 3, 4 and 5 part level definitions.",
                     this);
             }
             else if (!instantiateDefinitionPrefab && sceneLevel == null)

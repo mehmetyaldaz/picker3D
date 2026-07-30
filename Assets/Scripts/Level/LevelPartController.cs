@@ -110,6 +110,14 @@ namespace Picker3D.Level
             }
         }
 
+        private void OnDestroy()
+        {
+            if (gameFlow != null)
+            {
+                gameFlow.StateChanged -= HandleGameStateChanged;
+            }
+        }
+
         private void HandlePlayerEntered(PlayerMovement playerMovement)
         {
             if (!isInitialized ||
@@ -207,6 +215,7 @@ namespace Picker3D.Level
             restartService = sharedRestartService;
             nextGate = followingGate;
             isInitialized = true;
+            gameFlow.StateChanged += HandleGameStateChanged;
 
             if (requirementDisplay != null)
             {
@@ -217,6 +226,22 @@ namespace Picker3D.Level
         public void SetCurrentPart(bool isCurrent)
         {
             isCurrentPart = isCurrent;
+            RefreshFlyingCollectibleState();
+        }
+
+        private void HandleGameStateChanged(
+            GameState previousState,
+            GameState nextState)
+        {
+            RefreshFlyingCollectibleState();
+        }
+
+        private void RefreshFlyingCollectibleState()
+        {
+            collectibleGenerator?.SetPartActive(
+                isCurrentPart &&
+                gameFlow != null &&
+                gameFlow.CurrentState == GameState.PlayingPart);
         }
 
         public bool ConfigureCollectibleGeneration(

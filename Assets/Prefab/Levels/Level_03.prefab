@@ -188,7 +188,7 @@ Transform:
   m_GameObject: {fileID: 8950462215883329514}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -3.98, y: -0.31, z: 231.20001}
+  m_LocalPosition: {x: -3.98, y: -0.31, z: 230.51003}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -212,7 +212,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2090068989002236896, guid: efeb74b80abfe0e488d791e7e3732187, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 140.9
+      value: 140.2
       objectReference: {fileID: 0}
     - target: {fileID: 2090068989002236896, guid: efeb74b80abfe0e488d791e7e3732187, type: 3}
       propertyPath: m_LocalRotation.w
@@ -516,7 +516,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 210487937460563682, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 72
+      value: 71.8
       objectReference: {fileID: 0}
     - target: {fileID: 210487937460563682, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: m_LocalRotation.w
@@ -549,7 +549,7 @@ PrefabInstance:
     - target: {fileID: 940898648209565595, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: config
       value: 
-      objectReference: {fileID: 11400000, guid: 48fac88c3af43b44492042e7d930d6d9, type: 2}
+      objectReference: {fileID: 11400000, guid: 0f6074b914a53b9498a571fc0e32f11b, type: 2}
     - target: {fileID: 1143632701815758393, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: m_Name
       value: LevelPart_04
@@ -593,7 +593,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 210487937460563682, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 101.3
+      value: 101.090004
       objectReference: {fileID: 0}
     - target: {fileID: 210487937460563682, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: m_LocalRotation.w
@@ -626,7 +626,7 @@ PrefabInstance:
     - target: {fileID: 940898648209565595, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: config
       value: 
-      objectReference: {fileID: 11400000, guid: 48fac88c3af43b44492042e7d930d6d9, type: 2}
+      objectReference: {fileID: 11400000, guid: 4fbb217d23baa6942af8e0f388fec294, type: 2}
     - target: {fileID: 1143632701815758393, guid: ad6216027137b9b49910c8f613a47924, type: 3}
       propertyPath: m_Name
       value: LevelPart_05
