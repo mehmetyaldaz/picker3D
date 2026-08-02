@@ -17,13 +17,11 @@ namespace Picker3D.Level
             "picker3d_current_level_index";
 
         [Header("Level Source")]
-        [SerializeField] private bool instantiateDefinitionPrefab;
         [FormerlySerializedAs("levelDefinition")]
         [SerializeField] private LevelDefinition threePartLevelDefinition;
         [SerializeField] private LevelDefinition fourPartLevelDefinition;
         [SerializeField] private LevelDefinition fivePartLevelDefinition;
         [SerializeField] private Transform levelParent;
-        [SerializeField] private LevelController sceneLevel;
 
         [Header("Level Length Progression")]
         [SerializeField, Min(1)] private int fourPartUnlockLevel = 11;
@@ -67,10 +65,25 @@ namespace Picker3D.Level
 
         public LevelController ActiveLevel { get; private set; }
         public int CurrentLevelNumber => currentLevelIndex + 1;
-        public DifficultyType CurrentDifficulty =>
-            activeDifficulty != null
-                ? activeDifficulty.Difficulty
-                : DifficultyType.Easy;
+
+        public void ResetLevelProgress()
+        {
+            currentLevelIndex = 0;
+            SaveLevelIndex(currentLevelIndex);
+        }
+
+        public void AddLevelProgress(int levelCount)
+        {
+            if (levelCount <= 0)
+            {
+                return;
+            }
+
+            currentLevelIndex = (int)Math.Min(
+                (long)currentLevelIndex + levelCount,
+                int.MaxValue - 1L);
+            SaveLevelIndex(currentLevelIndex);
+        }
 
         private void Awake()
         {
@@ -90,19 +103,9 @@ namespace Picker3D.Level
             currentLevelIndex = LoadSavedLevelIndex();
             activeDifficulty = SelectDifficulty(currentLevelIndex);
 
-            if (instantiateDefinitionPrefab)
-            {
-                activeLevelRoot = InstantiateDefinitionRoot(
-                    CurrentLevelNumber);
-                ActiveLevel = FindLevelController(activeLevelRoot);
-            }
-            else
-            {
-                ActiveLevel = sceneLevel;
-                activeLevelRoot = sceneLevel != null
-                    ? sceneLevel.gameObject
-                    : null;
-            }
+            activeLevelRoot = InstantiateDefinitionRoot(
+                CurrentLevelNumber);
+            ActiveLevel = FindLevelController(activeLevelRoot);
 
             if (!InitializeLevel(
                     ActiveLevel,
@@ -155,18 +158,9 @@ namespace Picker3D.Level
                 restartService != null &&
                 playerMovement != null &&
                 gemWallet != null &&
+                HasValidLevelDefinitions() &&
                 (!generateRuntimeCollectibles ||
                  HasAvailableDifficultyConfig());
-
-            if (infiniteGameplay)
-            {
-                isValid &= instantiateDefinitionPrefab &&
-                           HasValidLevelDefinitions();
-            }
-            else if (instantiateDefinitionPrefab)
-            {
-                isValid &= HasValidLevelDefinitions();
-            }
 
             if (!isValid)
             {
@@ -195,7 +189,6 @@ namespace Picker3D.Level
             controller.Initialize(
                 gameFlow,
                 ballReleaseController,
-                restartService,
                 playerMovement,
                 generateRuntimeCollectibles ? difficulty : null,
                 CreateLevelSeed(levelIndex),
@@ -656,24 +649,10 @@ namespace Picker3D.Level
                     this);
             }
 
-            if (infiniteGameplay && !instantiateDefinitionPrefab)
-            {
-                Debug.LogWarning(
-                    $"{nameof(LevelManager)} on '{name}' requires Instantiate Definition Prefab for infinite gameplay.",
-                    this);
-            }
-
-            if (instantiateDefinitionPrefab &&
-                !HasValidLevelDefinitions())
+            if (!HasValidLevelDefinitions())
             {
                 Debug.LogWarning(
                     $"{nameof(LevelManager)} on '{name}' requires valid 3, 4 and 5 part level definitions.",
-                    this);
-            }
-            else if (!instantiateDefinitionPrefab && sceneLevel == null)
-            {
-                Debug.LogWarning(
-                    $"{nameof(LevelManager)} on '{name}' has no scene level.",
                     this);
             }
         }

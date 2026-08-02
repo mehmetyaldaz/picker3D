@@ -7,7 +7,6 @@ namespace Picker3D.Core
     public sealed class GameFlowController : MonoBehaviour
     {
         [SerializeField] private PlayerMovement playerMovement;
-        [SerializeField] private bool startAutomatically = true;
 
         public event Action<GameState, GameState> StateChanged;
 
@@ -26,25 +25,12 @@ namespace Picker3D.Core
         private void Start()
         {
             ApplyPlayerMovementState();
-
-            if (startAutomatically)
-            {
-                StartPlaying();
-                return;
-            }
-
             PrepareToPlay();
         }
 
         public void PrepareToPlay()
         {
             ChangeState(GameState.Ready);
-        }
-
-        public void EnableManualStart()
-        {
-            startAutomatically = false;
-            PrepareToPlay();
         }
 
         public void StartPlaying()

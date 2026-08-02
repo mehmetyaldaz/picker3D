@@ -2941,9 +2941,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec6551bc1f99d814f8ff8c74c23589be, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  leftRenderer: {fileID: 5983840443799102335}
-  rightRenderer: {fileID: 5983840443799102335}
-  backRenderer: {fileID: 5983840443799102335}
+  playerRenderer: {fileID: 5983840443799102335}
   skinMaterials:
   - {fileID: 2100000, guid: f876d181ee3b69a49bad769652b479ef, type: 2}
   - {fileID: 2100000, guid: 4e3d721f3a8435545b384208f1144ba0, type: 2}

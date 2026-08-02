@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Picker3D.Cosmetics
 {
@@ -10,10 +11,9 @@ namespace Picker3D.Cosmetics
         private const string SelectedCosmeticKey =
             "picker3d_selected_cosmetic";
 
-        [Header("Player Renderers")]
-        [SerializeField] private MeshRenderer leftRenderer;
-        [SerializeField] private MeshRenderer rightRenderer;
-        [SerializeField] private MeshRenderer backRenderer;
+        [Header("Player Renderer")]
+        [FormerlySerializedAs("leftRenderer")]
+        [SerializeField] private MeshRenderer playerRenderer;
 
         [Header("Store Materials")]
         [SerializeField] private Material[] skinMaterials =
@@ -21,15 +21,13 @@ namespace Picker3D.Cosmetics
         [SerializeField] private Material[] colorMaterials =
             new Material[9];
 
-        private Material[] originalLeftMaterials;
-        private Material[] originalRightMaterials;
-        private Material[] originalBackMaterials;
+        private Material[] originalMaterials;
         private string selectedCosmeticId;
         private bool originalsCaptured;
 
         private void Awake()
         {
-            FindRendererReferences();
+            FindRendererReference();
             CaptureOriginalMaterials();
             RestoreSavedSelection();
         }
@@ -165,6 +163,30 @@ namespace Picker3D.Cosmetics
             return true;
         }
 
+        public void ResetAllCosmetics()
+        {
+            RestoreOriginalMaterials();
+            selectedCosmeticId = string.Empty;
+            PlayerPrefs.DeleteKey(SelectedCosmeticKey);
+            DeleteUnlockKeys(CosmeticCategory.Skin);
+            DeleteUnlockKeys(CosmeticCategory.Color);
+            PlayerPrefs.Save();
+        }
+
+        private void DeleteUnlockKeys(
+            CosmeticCategory category)
+        {
+            int itemCount = GetItemCount(category);
+
+            for (int itemIndex = 0;
+                 itemIndex < itemCount;
+                 itemIndex++)
+            {
+                PlayerPrefs.DeleteKey(
+                    GetUnlockKey(category, itemIndex));
+            }
+        }
+
         private void ClearSelection()
         {
             RestoreOriginalMaterials();
@@ -280,9 +302,7 @@ namespace Picker3D.Cosmetics
         private void ApplyMaterial(Material material)
         {
             CaptureOriginalMaterials();
-            ApplyMaterial(leftRenderer, material);
-            ApplyMaterial(rightRenderer, material);
-            ApplyMaterial(backRenderer, material);
+            ApplyMaterial(playerRenderer, material);
         }
 
         private void ApplyMaterial(
@@ -316,21 +336,15 @@ namespace Picker3D.Cosmetics
                 return;
             }
 
-            FindRendererReferences();
+            FindRendererReference();
 
-            if (leftRenderer == null ||
-                rightRenderer == null ||
-                backRenderer == null)
+            if (playerRenderer == null)
             {
                 return;
             }
 
-            originalLeftMaterials =
-                leftRenderer.sharedMaterials;
-            originalRightMaterials =
-                rightRenderer.sharedMaterials;
-            originalBackMaterials =
-                backRenderer.sharedMaterials;
+            originalMaterials =
+                playerRenderer.sharedMaterials;
             originalsCaptured = true;
         }
 
@@ -343,32 +357,29 @@ namespace Picker3D.Cosmetics
                 return;
             }
 
-            leftRenderer.sharedMaterials =
-                originalLeftMaterials;
-            rightRenderer.sharedMaterials =
-                originalRightMaterials;
-            backRenderer.sharedMaterials =
-                originalBackMaterials;
+            playerRenderer.sharedMaterials =
+                originalMaterials;
         }
 
-        private void FindRendererReferences()
+        private void FindRendererReference()
         {
-            if (leftRenderer == null)
+            if (playerRenderer != null)
             {
-                leftRenderer =
-                    FindChildRenderer("Left");
+                return;
             }
 
-            if (rightRenderer == null)
+            playerRenderer = FindChildRenderer("UVisual");
+
+            if (playerRenderer == null)
             {
-                rightRenderer =
-                    FindChildRenderer("Right");
+                playerRenderer = FindChildRenderer("Left");
             }
 
-            if (backRenderer == null)
+            if (playerRenderer == null)
             {
-                backRenderer =
-                    FindChildRenderer("Back");
+                playerRenderer =
+                    GetComponentInChildren<MeshRenderer>(
+                        true);
             }
         }
 
@@ -383,7 +394,14 @@ namespace Picker3D.Cosmetics
 
         private void OnValidate()
         {
-            FindRendererReferences();
+            FindRendererReference();
+
+            if (playerRenderer == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(PlayerCosmeticController)} on '{name}' could not find the player's MeshRenderer.",
+                    this);
+            }
 
             if (skinMaterials == null ||
                 skinMaterials.Length != 9 ||

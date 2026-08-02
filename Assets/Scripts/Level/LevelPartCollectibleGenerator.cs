@@ -8,6 +8,9 @@ namespace Picker3D.Level
     [DisallowMultipleComponent]
     public sealed class LevelPartCollectibleGenerator : MonoBehaviour
     {
+        private const float ClearParticleSpawnOffset = 0.12f;
+        private const float ClearParticleUpwardSpeed = 2f;
+
         private enum GenerationMode
         {
             Small,
@@ -18,6 +21,11 @@ namespace Picker3D.Level
         [SerializeField] private LevelPartCollectibleLayoutSetup layoutSetup;
         [SerializeField] private CollectiblePrefabCatalog prefabCatalog;
         [SerializeField] private CollectiblePalette colorPalette;
+
+        [Header("Clear Effect")]
+        [SerializeField] private ParticleSystem clearParticles;
+        [SerializeField, Range(1, 3)]
+        private int clearParticlesPerCollectible = 2;
 
         [Header("Large Collectibles")]
         [SerializeField] private LevelPartLargeCollectibleLayoutSetup largeLayoutSetup;
@@ -31,11 +39,10 @@ namespace Picker3D.Level
         [SerializeField, Range(0f, 1f)] private float flyingLayoutChance;
 
         private readonly List<CollectibleItem> generatedItems = new();
+        private readonly List<CollectibleItem> clearParticleItems = new();
         private GameObject activeLayoutRoot;
         private FlyingCollectibleSpawner activeFlyingSpawner;
-        private int generatedCollectibleCount;
-
-        public int GeneratedCount => generatedCollectibleCount;
+        private Color activeCollectibleColor = Color.white;
 
         public bool Generate(
             int requiredCount,
@@ -111,6 +118,7 @@ namespace Picker3D.Level
             activeLayoutRoot = activeLayout.gameObject;
 
             Color partColor = colorPalette.GetRandomColor(random);
+            activeCollectibleColor = partColor;
             CollectibleItem partPrefab = prefabCatalog.GetRandomPrefab(random);
 
             if (partPrefab == null)
@@ -133,8 +141,6 @@ namespace Picker3D.Level
                 item.ApplyColor(partColor);
                 generatedItems.Add(item);
             }
-
-            generatedCollectibleCount = generatedCount;
 
             Debug.Log(
                 $"Generated {generatedCount} small collectibles for '{name}' with requirement {requiredCount}.",
@@ -172,6 +178,7 @@ namespace Picker3D.Level
             activeLayoutRoot = activeLayout.gameObject;
 
             Color partColor = colorPalette.GetRandomColor(random);
+            activeCollectibleColor = partColor;
             int largeObjectCount = Mathf.Min(3, activeLayout.Capacity);
             int baseSplitCount = generatedCount / largeObjectCount;
             int remainder = generatedCount % largeObjectCount;
@@ -197,7 +204,6 @@ namespace Picker3D.Level
                 }
             }
 
-            generatedCollectibleCount = generatedCount;
             Debug.Log(
                 $"Generated {largeObjectCount} large {largePrefab.Shape} objects for '{name}'. They split into {generatedCount} collectibles for requirement {requiredCount}.",
                 this);
@@ -252,6 +258,7 @@ namespace Picker3D.Level
 
             Color partColor =
                 colorPalette.GetRandomColor(random);
+            activeCollectibleColor = partColor;
 
             if (!activeFlyingSpawner.Configure(
                     activeRoute,
@@ -265,7 +272,6 @@ namespace Picker3D.Level
                 return false;
             }
 
-            generatedCollectibleCount = generatedCount;
             Debug.Log(
                 $"Prepared flying collectible dropper for '{name}'. It will drop {generatedCount} {partPrefab.Shape} collectibles for requirement {requiredCount}.",
                 this);
@@ -404,7 +410,72 @@ namespace Picker3D.Level
             }
 
             generatedItems.Clear();
-            generatedCollectibleCount = 0;
+        }
+
+        public void PlayClearParticles()
+        {
+            if (clearParticles == null)
+            {
+                return;
+            }
+
+            clearParticleItems.Clear();
+
+            if (activeLayoutRoot != null)
+            {
+                activeLayoutRoot.GetComponentsInChildren(
+                    true,
+                    clearParticleItems);
+            }
+            else
+            {
+                for (int index = 0;
+                     index < generatedItems.Count;
+                     index++)
+                {
+                    CollectibleItem item = generatedItems[index];
+
+                    if (item != null)
+                    {
+                        clearParticleItems.Add(item);
+                    }
+                }
+            }
+
+            if (clearParticleItems.Count == 0)
+            {
+                return;
+            }
+
+            clearParticles.Play();
+            ParticleSystem.EmitParams emitParams = new()
+            {
+                startColor = activeCollectibleColor
+            };
+
+            for (int index = 0;
+                 index < clearParticleItems.Count;
+                 index++)
+            {
+                CollectibleItem item = clearParticleItems[index];
+
+                if (item == null ||
+                    !item.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                emitParams.position =
+                    item.transform.position +
+                    Vector3.up * ClearParticleSpawnOffset;
+                emitParams.velocity =
+                    Vector3.up * ClearParticleUpwardSpeed;
+                clearParticles.Emit(
+                    emitParams,
+                    clearParticlesPerCollectible);
+            }
+
+            clearParticleItems.Clear();
         }
 
         private bool ValidateGenerationRequest(
@@ -434,6 +505,11 @@ namespace Picker3D.Level
 
         private void OnValidate()
         {
+            clearParticlesPerCollectible = Mathf.Clamp(
+                clearParticlesPerCollectible,
+                1,
+                3);
+
             if (layoutSetup == null)
             {
                 layoutSetup = GetComponent<LevelPartCollectibleLayoutSetup>();
@@ -450,6 +526,15 @@ namespace Picker3D.Level
             {
                 Debug.LogWarning(
                     $"{nameof(LevelPartCollectibleGenerator)} on '{name}' has Flying and Large chances whose sum is above 1. Small mode will not be selected.",
+                    this);
+            }
+
+            if (clearParticles != null &&
+                clearParticles.main.simulationSpace !=
+                ParticleSystemSimulationSpace.World)
+            {
+                Debug.LogWarning(
+                    $"{nameof(LevelPartCollectibleGenerator)} on '{name}' requires Clear Particles Simulation Space to be World.",
                     this);
             }
         }

@@ -4,9 +4,5 @@ namespace Picker3D.Balls
 {
     public sealed class BallReleaseController : CollectibleReleaseController
     {
-        public void ReleaseCollectedBalls()
-        {
-            ReleaseCollectedItems();
-        }
     }
 }

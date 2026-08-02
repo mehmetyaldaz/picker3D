@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,10 +10,6 @@ namespace Picker3D.Collectibles
         [SerializeField] private Collider collectionTrigger;
 
         private readonly HashSet<CollectibleItem> collectedItems = new();
-
-        public event Action<int> CountChanged;
-
-        public int CollectedCount => collectedItems.Count;
 
         protected virtual void Reset()
         {
@@ -85,7 +80,6 @@ namespace Picker3D.Collectibles
                 return false;
             }
 
-            CountChanged?.Invoke(collectedItems.Count);
             return true;
         }
 
@@ -99,7 +93,6 @@ namespace Picker3D.Collectibles
             }
 
             item.Release(Vector3.zero);
-            CountChanged?.Invoke(collectedItems.Count);
         }
 
         public void ReleaseAll(
@@ -119,7 +112,6 @@ namespace Picker3D.Collectibles
             }
 
             collectedItems.Clear();
-            CountChanged?.Invoke(0);
         }
 
         public void ReleaseAll(
@@ -149,7 +141,6 @@ namespace Picker3D.Collectibles
             }
 
             collectedItems.Clear();
-            CountChanged?.Invoke(0);
         }
 
         protected virtual void OnDisable()

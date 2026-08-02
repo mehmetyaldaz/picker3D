@@ -19,10 +19,6 @@ namespace Picker3D.Collectibles
         public event Action<int> CountChanged;
 
         public int Count => countedItems.Count;
-        public Vector3 ReleaseTargetPosition =>
-            countingTrigger != null
-                ? countingTrigger.bounds.center
-                : transform.position;
 
         public Vector3 GetReleaseTargetPosition(
             int itemIndex,
@@ -126,13 +122,6 @@ namespace Picker3D.Collectibles
                 Destroy(item.gameObject);
             }
 
-            countedItems.Clear();
-            countedItemOrder.Clear();
-            CountChanged?.Invoke(0);
-        }
-
-        public void ResetCounter()
-        {
             countedItems.Clear();
             countedItemOrder.Clear();
             CountChanged?.Invoke(0);

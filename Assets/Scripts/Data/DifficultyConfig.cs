@@ -13,8 +13,6 @@ namespace Picker3D.Data
         [SerializeField, Min(0)] private int generatedCountBonus = 10;
 
         public DifficultyType Difficulty => difficulty;
-        public int PartCount => requiredCounts != null ? requiredCounts.Length : 0;
-        public int GeneratedCountBonus => generatedCountBonus;
 
         public bool TryGetPartCounts(
             int partIndex,

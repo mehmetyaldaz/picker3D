@@ -256,6 +256,8 @@ MonoBehaviour:
   wingRotationSpeed: 261.6
   dropPoint: {fileID: 1207389627620795040}
   routeSpeed: 4.5
+  verticalBobDistance: 0.2
+  verticalBobFrequency: 1.5
   downwardSpeed: 1.5
   horizontalSpread: 0.6
   angularSpeed: 3
@@ -412,7 +414,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 8d319668db7b47449b453b7cfecdf2cc, type: 2}
+  - {fileID: 2100000, guid: 7176c99c72d261443beeb66e2026f3c7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

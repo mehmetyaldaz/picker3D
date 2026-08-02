@@ -55,11 +55,6 @@ namespace Picker3D.Level
             PlayerEntered?.Invoke(playerMovement);
         }
 
-        public void ResetTrigger()
-        {
-            hasTriggered = false;
-        }
-
         private void OnValidate()
         {
             if (playerTrigger == null)

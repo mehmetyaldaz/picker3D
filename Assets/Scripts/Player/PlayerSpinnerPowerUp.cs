@@ -13,8 +13,7 @@ namespace Picker3D.Player
 
         private Quaternion leftStartRotation;
         private Quaternion rightStartRotation;
-
-        public bool IsActive { get; private set; }
+        private bool isActive;
 
         private void Awake()
         {
@@ -24,7 +23,7 @@ namespace Picker3D.Player
 
         private void FixedUpdate()
         {
-            if (!IsActive)
+            if (!isActive)
             {
                 return;
             }
@@ -53,7 +52,7 @@ namespace Picker3D.Player
 
         public void Deactivate()
         {
-            IsActive = false;
+            isActive = false;
 
             if (leftSpinnerPivot != null)
             {
@@ -73,7 +72,7 @@ namespace Picker3D.Player
 
         private void SetActiveState(bool isActive)
         {
-            IsActive = isActive;
+            this.isActive = isActive;
 
             if (spinnerRoot != null)
             {

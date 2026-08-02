@@ -6,6 +6,8 @@ using Picker3D.Data;
 using Picker3D.Player;
 using Picker3D.World;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Picker3D.Level
 {
@@ -27,6 +29,14 @@ namespace Picker3D.Level
         [SerializeField] private Transform spinnerPickupSpawnPoint;
         [SerializeField] private Transform missionRouteAnchor;
 
+        [Header("Local Volume Chances")]
+        [SerializeField, Range(0f, 1f)]
+        private float volumeEffectChance = 0.5f;
+        [SerializeField, Min(0f)] private float redStyleWeight = 1f;
+        [SerializeField, Min(0f)] private float greenStyleWeight = 1f;
+        [SerializeField, Min(0f)]
+        private float blackAndWhiteStyleWeight = 1f;
+
         [Header("Player Movement Limits")]
         [SerializeField] private Transform leftMovementLimit;
         [SerializeField] private Transform rightMovementLimit;
@@ -35,15 +45,16 @@ namespace Picker3D.Level
         private Coroutine resolutionRoutine;
         private GameFlowController gameFlow;
         private CollectibleReleaseController ballReleaseController;
-        private LevelRestartService restartService;
         private GateController nextGate;
+        private Volume localVolume;
         private bool isInitialized;
         private bool isCurrentPart;
         private bool isResolving;
         private int runtimeRequiredCollectibleCount = -1;
 
-        public event Action<LevelPartController> PartSucceeded;
-        public event Action<LevelPartController> PartFailed;
+        private static readonly Vector3 LuminanceMixer =
+            new(21.26f, 71.52f, 7.22f);
+
         public event Action<LevelPartController> TransitionCompleted;
         public event Action<int> CollectiblesDeposited;
 
@@ -53,9 +64,6 @@ namespace Picker3D.Level
                 : config != null
                     ? config.RequiredBallCount
                     : 0;
-
-        public int CountedBallCount =>
-            dropboxBallCounter != null ? dropboxBallCounter.Count : 0;
 
         public GateController EntranceGate => entranceGate;
         public Transform LeftMovementLimit => leftMovementLimit;
@@ -159,7 +167,6 @@ namespace Picker3D.Level
                 Debug.Log(
                     $"Level part '{name}' failed: {dropboxBallCounter.Count}/{RequiredBallCount} collectibles counted.",
                     this);
-                PartFailed?.Invoke(this);
                 gameFlow.FailLevel();
                 resolutionRoutine = null;
                 yield break;
@@ -168,9 +175,8 @@ namespace Picker3D.Level
             Debug.Log(
                 $"Level part '{name}' succeeded: {dropboxBallCounter.Count}/{RequiredBallCount} collectibles counted.",
                 this);
-            PartSucceeded?.Invoke(this);
-
             gameFlow.BeginTransition();
+            collectibleGenerator.PlayClearParticles();
             dropboxBallCounter.ConsumeAllCountedItems();
             collectibleGenerator.ClearGeneratedObjects();
             requirementDisplay?.SetVisible(false);
@@ -199,7 +205,6 @@ namespace Picker3D.Level
         public void Initialize(
             GameFlowController sharedGameFlow,
             CollectibleReleaseController sharedBallReleaseController,
-            LevelRestartService sharedRestartService,
             GateController followingGate)
         {
             if (isInitialized)
@@ -212,7 +217,6 @@ namespace Picker3D.Level
 
             gameFlow = sharedGameFlow;
             ballReleaseController = sharedBallReleaseController;
-            restartService = sharedRestartService;
             nextGate = followingGate;
             isInitialized = true;
             gameFlow.StateChanged += HandleGameStateChanged;
@@ -270,10 +274,102 @@ namespace Picker3D.Level
             }
 
             runtimeRequiredCollectibleCount = requiredCount;
-            return collectibleGenerator.Generate(
+            bool generated = collectibleGenerator.Generate(
                 requiredCount,
                 generatedCount,
                 partSeed);
+
+            if (generated)
+            {
+                ApplyRandomVolumeStyle(partSeed);
+            }
+
+            return generated;
+        }
+
+        private void ApplyRandomVolumeStyle(int partSeed)
+        {
+            if (localVolume == null)
+            {
+                localVolume =
+                    GetComponentInChildren<Volume>(true);
+            }
+
+            if (localVolume == null ||
+                !localVolume.profile.TryGet(
+                    out ChannelMixer channelMixer))
+            {
+                return;
+            }
+
+            System.Random random =
+                new(partSeed ^ 7919);
+
+            if (random.NextDouble() >= volumeEffectChance)
+            {
+                channelMixer.active = false;
+                return;
+            }
+
+            float totalStyleWeight =
+                redStyleWeight +
+                greenStyleWeight +
+                blackAndWhiteStyleWeight;
+
+            if (totalStyleWeight <= 0f)
+            {
+                channelMixer.active = false;
+                return;
+            }
+
+            double styleRoll =
+                random.NextDouble() * totalStyleWeight;
+            Vector3 zero = Vector3.zero;
+
+            if (styleRoll < redStyleWeight)
+            {
+                ApplyChannelMixer(
+                    channelMixer,
+                    LuminanceMixer,
+                    zero,
+                    zero);
+                return;
+            }
+
+            if (styleRoll <
+                redStyleWeight + greenStyleWeight)
+            {
+                ApplyChannelMixer(
+                    channelMixer,
+                    zero,
+                    LuminanceMixer,
+                    zero);
+                return;
+            }
+
+            ApplyChannelMixer(
+                channelMixer,
+                LuminanceMixer,
+                LuminanceMixer,
+                LuminanceMixer);
+        }
+
+        private static void ApplyChannelMixer(
+            ChannelMixer channelMixer,
+            Vector3 redOutput,
+            Vector3 greenOutput,
+            Vector3 blueOutput)
+        {
+            channelMixer.active = true;
+            channelMixer.redOutRedIn.Override(redOutput.x);
+            channelMixer.redOutGreenIn.Override(redOutput.y);
+            channelMixer.redOutBlueIn.Override(redOutput.z);
+            channelMixer.greenOutRedIn.Override(greenOutput.x);
+            channelMixer.greenOutGreenIn.Override(greenOutput.y);
+            channelMixer.greenOutBlueIn.Override(greenOutput.z);
+            channelMixer.blueOutRedIn.Override(blueOutput.x);
+            channelMixer.blueOutGreenIn.Override(blueOutput.y);
+            channelMixer.blueOutBlueIn.Override(blueOutput.z);
         }
 
         public bool SpawnSpinnerPickup(SpinnerPowerUpPickup pickupPrefab)
@@ -313,7 +409,6 @@ namespace Picker3D.Level
                 nameof(movementRestrictionAnchor));
             isValid &= ValidateReference(gameFlow, nameof(gameFlow));
             isValid &= ValidateReference(ballReleaseController, nameof(ballReleaseController));
-            isValid &= ValidateReference(restartService, nameof(restartService));
 
             return isValid;
         }

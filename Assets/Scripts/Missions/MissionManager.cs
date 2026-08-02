@@ -308,6 +308,12 @@ namespace Picker3D.Missions
                 DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         }
 
+        public void ResetAllMissions()
+        {
+            ResetMissionData(
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        }
+
         private void LoadMissionProgress()
         {
             if (isLoaded)
@@ -491,6 +497,11 @@ namespace Picker3D.Missions
                 return;
             }
 
+            ResetMissionData(now);
+        }
+
+        private void ResetMissionData(long now)
+        {
             if (activeMissions != null)
             {
                 foreach (MissionDefinition mission
