@@ -10,17 +10,7 @@ namespace Picker3D.World
         [SerializeField] private Transform bridgeSurface;
         [SerializeField] private Transform scaleTarget;
 
-        private Vector3 initialSurfaceScale;
-
         public bool IsExtended { get; private set; }
-
-        private void Awake()
-        {
-            if (bridgeSurface != null)
-            {
-                initialSurfaceScale = bridgeSurface.localScale;
-            }
-        }
 
         public IEnumerator ExtendRoutine(
             float duration,
@@ -63,18 +53,6 @@ namespace Picker3D.World
 
             bridgeSurface.localScale = targetScale;
             IsExtended = true;
-        }
-
-        public void RestoreInitialShape()
-        {
-            SetSidesActive(true);
-
-            if (bridgeSurface != null)
-            {
-                bridgeSurface.localScale = initialSurfaceScale;
-            }
-
-            IsExtended = false;
         }
 
         private void SetSidesActive(bool isActive)

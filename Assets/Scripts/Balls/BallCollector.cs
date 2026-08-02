@@ -4,6 +4,5 @@ namespace Picker3D.Balls
 {
     public sealed class BallCollector : CollectibleCollector
     {
-        public int CollectedBallCount => CollectedCount;
     }
 }

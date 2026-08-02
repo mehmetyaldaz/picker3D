@@ -45,22 +45,6 @@ namespace Picker3D.Collectibles
             }
         }
 
-        public void ClearColorOverride()
-        {
-            if (!ValidateRenderers())
-            {
-                return;
-            }
-
-            for (int index = 0; index < targetRenderers.Length; index++)
-            {
-                if (targetRenderers[index] != null)
-                {
-                    targetRenderers[index].SetPropertyBlock(null);
-                }
-            }
-        }
-
         private bool ValidateRenderers()
         {
             if (targetRenderers != null && targetRenderers.Length > 0)

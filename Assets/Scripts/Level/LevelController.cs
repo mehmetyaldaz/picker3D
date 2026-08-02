@@ -35,7 +35,6 @@ namespace Picker3D.Level
         private bool isActiveLevel;
         private Coroutine finalRampPreparationRoutine;
 
-        public event Action<int, LevelPartController> CurrentPartChanged;
         public event Action<int> PartCompleted;
         public event Action<int> LevelCompleted;
         public event Action<int> CollectiblesDeposited;
@@ -43,7 +42,6 @@ namespace Picker3D.Level
         public int PartCount =>
             orderedParts != null ? orderedParts.Length : 0;
 
-        public int CurrentPartIndex => currentPartIndex;
         public int CompletedPartCount { get; private set; }
         public Transform PlayerSpawnPoint => playerSpawnPoint;
         public Transform NextLevelAnchor => nextLevelAnchor;
@@ -63,7 +61,6 @@ namespace Picker3D.Level
         public void Initialize(
             GameFlowController sharedGameFlow,
             CollectibleReleaseController ballReleaseController,
-            LevelRestartService restartService,
             PlayerMovement sharedPlayerMovement,
             DifficultyConfig difficultyConfig,
             int levelSeed,
@@ -80,7 +77,6 @@ namespace Picker3D.Level
             if (!ValidateConfiguration(
                     sharedGameFlow,
                     ballReleaseController,
-                    restartService,
                     sharedPlayerMovement))
             {
                 enabled = false;
@@ -122,7 +118,6 @@ namespace Picker3D.Level
                 part.Initialize(
                     sharedGameFlow,
                     ballReleaseController,
-                    restartService,
                     nextGate);
                 part.SetCurrentPart(false);
                 part.TransitionCompleted += HandlePartTransitionCompleted;
@@ -181,9 +176,6 @@ namespace Picker3D.Level
 
             ApplyMovementLimits(orderedParts[currentPartIndex]);
             isActiveLevel = true;
-            CurrentPartChanged?.Invoke(
-                currentPartIndex,
-                orderedParts[currentPartIndex]);
             return true;
         }
 
@@ -399,7 +391,6 @@ namespace Picker3D.Level
             nextPart.SetCurrentPart(true);
             ApplyMovementLimits(nextPart);
             gameFlow.ResumePlaying();
-            CurrentPartChanged?.Invoke(currentPartIndex, nextPart);
         }
 
         private void HandleCollectiblesDeposited(
@@ -439,14 +430,12 @@ namespace Picker3D.Level
         private bool ValidateConfiguration(
             GameFlowController sharedGameFlow,
             CollectibleReleaseController ballReleaseController,
-            LevelRestartService restartService,
             PlayerMovement sharedPlayerMovement)
         {
             bool isValid = true;
 
             if (sharedGameFlow == null ||
                 ballReleaseController == null ||
-                restartService == null ||
                 sharedPlayerMovement == null)
             {
                 Debug.LogError(

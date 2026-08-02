@@ -14,10 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredBallCount: 5
   dropSettleDuration: 2
-  failureRestartDelay: 1
   dropboxRaiseDuration: 1
   bridgeExtendDuration: 1
-  gateOpenDuration: 2
+  gateOpenDuration: 0.5
   transitionCurve:
     serializedVersion: 2
     m_Curve:

@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredBallCount: 4
   dropSettleDuration: 2
-  failureRestartDelay: 1
   dropboxRaiseDuration: 1
   bridgeExtendDuration: 0.5
   gateOpenDuration: 0.75
@@ -42,4 +41,4 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  bridgeColor: {r: 0, g: 1, b: 0, a: 1}
+  bridgeColor: {r: 0.619987, g: 0, b: 1, a: 1}

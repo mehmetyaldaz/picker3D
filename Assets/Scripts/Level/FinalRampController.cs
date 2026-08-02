@@ -27,8 +27,6 @@ namespace Picker3D.Level
         private bool isArmed;
         private bool isRunning;
 
-        public event Action RampStarted;
-        public event Action<string, int> RewardZoneReached;
         public event Action<int> RampCompleted;
 
         public void Initialize(GameFlowController sharedGameFlow)
@@ -138,7 +136,6 @@ namespace Picker3D.Level
                 config.MaximumRampSpeed,
                 config.PlayerRampZAngle,
                 config.PlayerRampVerticalOffset);
-            RampStarted?.Invoke();
         }
 
         private void HandleRewardZoneReached(RewardZone zone)
@@ -163,9 +160,6 @@ namespace Picker3D.Level
             }
 
             highestGemReward = zone.GemReward;
-            RewardZoneReached?.Invoke(
-                zone.ZoneId,
-                highestGemReward);
 
             if (rewardSettleRoutine != null)
             {

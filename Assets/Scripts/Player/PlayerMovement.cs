@@ -9,9 +9,9 @@ namespace Picker3D.Player
     {
         private const float MaximumNormalizedDragPerStep = 0.04f;
         private const float SafeMaximumHorizontalSpeed = 12f;
-        private const float RestrictedNormalizedDragPerStep = 0.012f;
-        private const float RestrictedMaximumHorizontalSpeed = 4.5f;
-        private const float RestrictedMaximumTargetDistance = 0.3f;
+        private const float RestrictedNormalizedDragPerStep = 0.018f;
+        private const float RestrictedMaximumHorizontalSpeed = 6.5f;
+        private const float RestrictedMaximumTargetDistance = 0.5f;
 
         [Header("Dependencies")]
         [SerializeField] private PlayerConfig config;

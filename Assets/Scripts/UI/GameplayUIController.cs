@@ -1,5 +1,7 @@
+using Picker3D.Cosmetics;
 using Picker3D.Core;
 using Picker3D.Level;
+using Picker3D.Missions;
 using UnityEngine;
 
 namespace Picker3D.UI
@@ -20,6 +22,11 @@ namespace Picker3D.UI
         [Header("Game Systems")]
         [SerializeField] private GameFlowController gameFlow;
         [SerializeField] private LevelRestartService restartService;
+        [SerializeField] private LevelManager levelManager;
+        [SerializeField] private PlayerCosmeticController
+            cosmeticController;
+        [SerializeField] private GemWallet gemWallet;
+        [SerializeField] private MissionManager missionManager;
 
         private void Reset()
         {
@@ -35,8 +42,6 @@ namespace Picker3D.UI
                 enabled = false;
                 return;
             }
-
-            gameFlow.EnableManualStart();
         }
 
         private void OnEnable()
@@ -53,6 +58,14 @@ namespace Picker3D.UI
                     HandleStoreRequested;
                 tapToPlayScreen.MissionRequested +=
                     HandleMissionRequested;
+                tapToPlayScreen.ResetRequested +=
+                    HandleResetRequested;
+                tapToPlayScreen.AddLevelRequested +=
+                    HandleAddLevelRequested;
+                tapToPlayScreen.AddGemRequested +=
+                    HandleAddGemRequested;
+                tapToPlayScreen.AddOneLevelRequested +=
+                    HandleAddOneLevelRequested;
             }
 
             if (failedScreen != null)
@@ -99,6 +112,14 @@ namespace Picker3D.UI
                     HandleStoreRequested;
                 tapToPlayScreen.MissionRequested -=
                     HandleMissionRequested;
+                tapToPlayScreen.ResetRequested -=
+                    HandleResetRequested;
+                tapToPlayScreen.AddLevelRequested -=
+                    HandleAddLevelRequested;
+                tapToPlayScreen.AddGemRequested -=
+                    HandleAddGemRequested;
+                tapToPlayScreen.AddOneLevelRequested -=
+                    HandleAddOneLevelRequested;
             }
 
             if (failedScreen != null)
@@ -169,6 +190,52 @@ namespace Picker3D.UI
 
             SetLevelProgressVisible(false);
             screenRouter.Show(UIScreenId.Mission);
+        }
+
+        private void HandleResetRequested()
+        {
+            if (gameFlow.CurrentState != GameState.Ready ||
+                restartService.IsRestarting)
+            {
+                return;
+            }
+
+            cosmeticController.ResetAllCosmetics();
+            missionManager.ResetAllMissions();
+            levelManager.ResetLevelProgress();
+            restartService.RestartCurrentLevel(0f);
+        }
+
+        private void HandleAddLevelRequested()
+        {
+            if (gameFlow.CurrentState != GameState.Ready ||
+                restartService.IsRestarting)
+            {
+                return;
+            }
+
+            levelManager.AddLevelProgress(10);
+            restartService.RestartCurrentLevel(0f);
+        }
+
+        private void HandleAddGemRequested()
+        {
+            if (gameFlow.CurrentState == GameState.Ready)
+            {
+                gemWallet.AddGems(5000);
+            }
+        }
+
+        private void HandleAddOneLevelRequested()
+        {
+            if (gameFlow.CurrentState != GameState.Ready ||
+                restartService.IsRestarting)
+            {
+                return;
+            }
+
+            levelManager.AddLevelProgress(1);
+            restartService.RestartCurrentLevel(0f);
         }
 
         private void HandleMissionCloseRequested()
@@ -282,6 +349,31 @@ namespace Picker3D.UI
                 levelProgressHud =
                     GetComponentInChildren<LevelProgressHUD>(true);
             }
+
+            if (levelManager == null)
+            {
+                levelManager =
+                    FindFirstObjectByType<LevelManager>();
+            }
+
+            if (cosmeticController == null)
+            {
+                cosmeticController =
+                    FindFirstObjectByType<
+                        PlayerCosmeticController>();
+            }
+
+            if (gemWallet == null)
+            {
+                gemWallet =
+                    FindFirstObjectByType<GemWallet>();
+            }
+
+            if (missionManager == null)
+            {
+                missionManager =
+                    FindFirstObjectByType<MissionManager>();
+            }
         }
 
         private bool ValidateReferences()
@@ -295,7 +387,11 @@ namespace Picker3D.UI
                 missionScreen != null &&
                 levelProgressHud != null &&
                 gameFlow != null &&
-                restartService != null;
+                restartService != null &&
+                levelManager != null &&
+                cosmeticController != null &&
+                gemWallet != null &&
+                missionManager != null;
 
             if (!isValid)
             {

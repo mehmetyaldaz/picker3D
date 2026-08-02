@@ -8,14 +8,12 @@ namespace Picker3D.Level
     [RequireComponent(typeof(Collider))]
     public sealed class RewardZone : MonoBehaviour
     {
-        [SerializeField] private string zoneId = "reward_zone";
         [SerializeField, Min(0)] private int gemReward = 200;
 
         private bool hasBeenReached;
 
         public event Action<RewardZone> Reached;
 
-        public string ZoneId => zoneId;
         public int GemReward => gemReward;
 
         private void Reset()
@@ -37,7 +35,6 @@ namespace Picker3D.Level
 
         private void OnValidate()
         {
-            zoneId = (zoneId ?? string.Empty).Trim();
             gemReward = Mathf.Max(0, gemReward);
 
             Collider trigger = GetComponent<Collider>();

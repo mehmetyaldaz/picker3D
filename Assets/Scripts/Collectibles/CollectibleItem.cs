@@ -21,8 +21,6 @@ namespace Picker3D.Collectibles
         private float guidedReleaseSpeed;
 
         public CollectibleShape Shape => shape;
-        public bool IsCollected => collector != null;
-        public bool IsCountedByDropbox => countedByDropbox;
 
         protected virtual void Awake()
         {
