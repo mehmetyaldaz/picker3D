@@ -1,7 +1,5 @@
 # Picker3D
 
-![Picker3D main screen](Assets/Materials/mainScreen.png)
-
 Picker3D is a mobile arcade game built with Unity. The player controls
 an automatically moving U-shaped collector, gathers physics-based
 objects, and delivers enough of them to the Dropbox at the end of each
@@ -12,6 +10,16 @@ speed and launch distance, and the highest reward zone touched determines
 the gem reward. The next level is prepared ahead of the player so the
 game can continue indefinitely without returning to a level-selection
 screen.
+
+## Screenshots
+
+| Main Screen | Gameplay Debug Screen |
+| --- | --- |
+| ![Picker3D main screen](Assets/Materials/GitHubReadMe/MainScreen.png) | ![Picker3D gameplay debug screen](Assets/Materials/GitHubReadMe/mainScreenDebug.png) |
+
+| Mission Screen | Skin Store Screen |
+| --- | --- |
+| ![Picker3D mission screen](Assets/Materials/GitHubReadMe/missionScreen.png) | ![Picker3D skin store screen](Assets/Materials/GitHubReadMe/skinScreen.png) |
 
 ## Gameplay Loop
 
